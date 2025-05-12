@@ -30,7 +30,7 @@ namespace bot_analysis
 
             // очистить экран
             Console.Clear();
-            /*************************НАЧАЛО Закоментирован блок обработки ботов
+            //*************************НАЧАЛО Закоментирован блок обработки ботов
             //произвести обновление списка остановленных и работающих ботов 
             await ApiToDatabase.UpdateBotList();
             
@@ -39,14 +39,14 @@ namespace bot_analysis
             await ApiToDatabase.UpdateTransactionsBots();
 
             //поиск и запись уникальных торговых пар из таблицы ботов
-            await SQL.InstId.UpdateTradingPairsFromBots(AppSql.GetConnectionString());
+            await SQL.InstId.UpdateTradingPairsFromBots(AppAll.AppSql.GetConnectionString());
 
 
             
-            await Results.PrintResultBotGpt(await Results.GetCoinStatsGroupedByInstIdAsync(AppSql.GetConnectionString()));
+            await Results.PrintResultBotGpt(await Results.GetCoinStatsGroupedByInstIdAsync(AppAll.AppSql.GetConnectionString()));
 
             //await Results.PrintResultBotGpt();
-            /************************* КОНЕЦ Закоментирован блок обработки ботов*/
+            //************************* КОНЕЦ Закоментирован блок обработки ботов*/
            
             await ApiToDatabase.TradeFillsHistory.UpdateTransactionsSpot();
             

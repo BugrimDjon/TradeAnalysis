@@ -44,3 +44,4 @@ C:\Users\Djon\source\repos\bot_analysis\bin\Debug\net8.0\Microsoft.Extensions.Co
 C:\Users\Djon\source\repos\bot_analysis\bin\Debug\net8.0\Microsoft.Extensions.Primitives.dll
 C:\Users\Djon\source\repos\bot_analysis\bin\Debug\net8.0\Sprache.dll
 C:\Users\Djon\source\repos\bot_analysis\bin\Debug\net8.0\.env
+C:\Users\Djon\source\repos\bot_analysis\obj\Debug\net8.0\bot_analysis.sourcelink.json
