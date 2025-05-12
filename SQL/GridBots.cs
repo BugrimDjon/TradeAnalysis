@@ -40,7 +40,19 @@ namespace bot_analysis.SQL
             
         }
 
+        public static async Task<string> GetStateByAlgoIdAsync(string AlgoId)
+        {
+            string query = $"SELECT State FROM gridbots " +
+                           $"WHERE AlgoId = {AlgoId} ";
 
+
+            using var connection = new MySqlConnection(AppAll.AppSql.GetConnectionString());
+            await connection.OpenAsync();
+
+            using var command = new MySqlCommand(query, connection);
+            var result = await command.ExecuteScalarAsync();
+            return result?.ToString();
+        }
 
 
         public static async Task<string> GetAlgoIdStoppedAndIsProcessedAsync( string connectionString)

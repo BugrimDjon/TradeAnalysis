@@ -73,7 +73,7 @@ namespace bot_analysis.from_API_to_database
             Console.WriteLine();
             Console.WriteLine("Производим обработку транзакций работающих ботов");
             var runningBots = await bot_analysis.SQL.GridBots.GetAlgoIdRunningAsync(AppAll.AppSql.GetConnectionString());
-     
+
             foreach (var bot in runningBots)
             {
                 await SyncBotOrdersAsync(bot, AppAll.AppSql.GetConnectionString(), false);
@@ -203,12 +203,27 @@ namespace bot_analysis.from_API_to_database
                     }
                     foreach (var bot in result.Data)
                     {
-                        //если ID бота в таблице нет или это вычитка работающих ботов,
-                        //то занести информацтю про этого бота в таблицу   
-                        if (!await SQL.GridBots.SearchAlgoIdAsinc(bot.AlgoId) || !oldBot)
+                        //если вычитка работающих ботов,
+                        //то занести информацтю про этого бота в таблицу
+                        if (bot.AlgoId == "2466860489448620032")
+                            Console.WriteLine(bot.AlgoId);
+                        if (!oldBot)
                         {
                             await Database.InsertGridBotAsync(bot, AppAll.AppSql.GetConnectionString());
                             numberOfRecords++;
+                        }
+                        
+                        else
+                        {       //обработка остановленных ботов
+                                //если такого AlgoId нет или его статус "running" (остановился с последнего опроса)
+                                //занести информацтю про этого бота в таблицу
+                            if (!await SQL.GridBots.SearchAlgoIdAsinc(bot.AlgoId) || 
+                                await SQL.GridBots.GetStateByAlgoIdAsync(bot.AlgoId)== "running")
+                            {
+                                await Database.InsertGridBotAsync(bot, AppAll.AppSql.GetConnectionString());
+                                numberOfRecords++;
+                            }
+
                         }
                         oldBotId = bot.AlgoId;
                     }
