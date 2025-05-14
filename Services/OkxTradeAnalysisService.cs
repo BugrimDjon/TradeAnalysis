@@ -5,6 +5,8 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using bot_analysis.Models;
+using bot_analysis.Config;
+using MySql.Data.MySqlClient;
 
 namespace bot_analysis.Services
 {
@@ -27,36 +29,44 @@ namespace bot_analysis.Services
         /// <returns> нет возвращаемых параметров </returns>
         public async Task AnalyzeTradesAsync()
         {
-            int len;
+            int len = 0;
             int counter = 0;
-            string lastTrade="";
+            string lastTrade = "";
+            IEnumerable<TradeFillsHistory> trades;
+
+            var mySqlDataBase = new MySqlConnection(AppDataBase.ConnectionStringForDB());
+            IWorkWithDataBase okxWorkWithDataBase = new OkxWorkWithDataBase(mySqlDataBase);
+
+            lastTrade = await okxWorkWithDataBase.SearchLastTradeFillsHistoryFromDB();
+            //lastTrade = "";
+
 
             do
             {
-                IEnumerable<TradeFillsHistory> trades;
+
                 //запрос ручных сделок
-                if (counter == 0)
+                if ((counter == 0) && (lastTrade == ""))
                     trades = await _apiClient.GetTradesAsync();
                 else
-                    trades = await _apiClient.GetTradesAsync(PaginationDirection.After, lastTrade);
+                    trades = await _apiClient.GetTradesAsync(PaginationDirection.Before, lastTrade);
 
-                len = trades.Count();
+                len += trades.Count();
 
-                if (len == 0)
+                if (trades.Count() == 0)
                 {
-                    Console.WriteLine("Нет доступных сделок для анализа.");
+                    Console.WriteLine("Считано " + len + " сделок");
                     return;
                 }
 
-                Console.WriteLine($"Получено сделок: {trades.Count()}");
-                foreach (var trade in trades)
-                {
-                    Console.WriteLine($"instId: {trade.instId}, цена: {trade.fillPx}, кол-во: {trade.fillSz}, side: {trade.side}");
-                    lastTrade = trade.billId;
-                }
+                await okxWorkWithDataBase.SaveTradeFillsHistoryToDataBase(trades);
+
+                Console.WriteLine($"Получено сделок: {len}");
+
+                lastTrade = trades.LastOrDefault()?.billId ?? "";
+
                 if (len < 100)
                 {
-                    Console.WriteLine("Все сделки считаны");
+                    Console.WriteLine("Считано " + len + " сделок");
                     break;
                 }
                 counter++;
