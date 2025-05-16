@@ -11,6 +11,9 @@ using MySql.Data.MySqlClient;
 using bot_analysis.from_API_to_database;
 using bot_analysis.TotalResults;
 using MySqlX.XDevAPI.Common;
+using bot_analysis.Interfaces;
+using bot_analysis.Services;
+using bot_analysis.Config;
 
 
 /*Получить активные боты	GET /api/v5/tradingBot/grid/orders-algo-pending
@@ -30,7 +33,7 @@ namespace bot_analysis
 
             // очистить экран
             Console.Clear();
-            //*************************НАЧАЛО Закоментирован блок обработки ботов
+            /*//*************************НАЧАЛО Закоментирован блок обработки для тестов
             //произвести обновление списка остановленных и работающих ботов 
             await ApiToDatabase.UpdateBotList();
             
@@ -46,12 +49,34 @@ namespace bot_analysis
             await Results.PrintResultBotGpt(await Results.GetCoinStatsGroupedByInstIdAsync(AppAll.AppSql.GetConnectionString()));
 
             //await Results.PrintResultBotGpt();
-            //************************* КОНЕЦ Закоментирован блок обработки ботов*/
            
             await ApiToDatabase.TradeFillsHistory.UpdateTransactionsSpot();
             
+            //************************* КОНЕЦ Закоментирован блок обработки для тестов*/
 
 
+
+
+            //*************************** Н А Ч А Л О     Н О В О Й  А Р Х И Т Е К Т У Р Ы
+            
+            // Создаем экземпляр HttpClient
+            var httpClient = new HttpClient();
+            
+
+            ITradeApiClient okxApiClient = new OkxApiClient(httpClient);
+            ITradeAnalysisService tradeAnalysisService = 
+                                    new OkxTradeAnalysisService(okxApiClient, AppDataBase.ConnectionStringForDB());
+
+
+
+            //await tradeAnalysisService.UpdateTradesAsync();//Обновление ручных сделок 
+            await tradeAnalysisService.UpdateAccountTransfers();//Обновление переводов на счет
+
+
+
+
+
+            Console.WriteLine("Для выхода нажмите клавишу");
             Console.Read();
             
         }

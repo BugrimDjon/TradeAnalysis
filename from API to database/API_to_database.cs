@@ -81,7 +81,7 @@ namespace bot_analysis.from_API_to_database
 
             }
 
-            Console.WriteLine("Обновлены транзпкции по " + x + "ботам");
+            Console.WriteLine("Обновлены транзпкции по " + x + " ботам");
             Console.WriteLine("------------------------------------------------------------------------------");
 
         }
@@ -205,8 +205,8 @@ namespace bot_analysis.from_API_to_database
                     {
                         //если вычитка работающих ботов,
                         //то занести информацтю про этого бота в таблицу
-                        if (bot.AlgoId == "2466860489448620032")
-                            Console.WriteLine(bot.AlgoId);
+                        /*if (bot.AlgoId == "2466860489448620032")
+                            Console.WriteLine(bot.AlgoId);*/
                         if (!oldBot)
                         {
                             await Database.InsertGridBotAsync(bot, AppAll.AppSql.GetConnectionString());

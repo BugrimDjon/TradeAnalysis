@@ -17,7 +17,8 @@ namespace bot_analysis.Interfaces
         Task<IEnumerable<TradeFillsHistory>> GetTradesAsync(PaginationDirection? afterBefore = null,
                                                             string? billId = null); // Получение сделок
         //Task<IEnumerable<ApiOrder>> GetOpenOrdersAsync(); // Получение открытых ордеров
-        //Task<IEnumerable<ApiTransfer>> GetTransfersAsync(); // Получение переводов
+        Task<IEnumerable<Bill>> GetTransfersStateAsync
+                (PaginationDirection? afterBefore = null, string? billId = null); // Получение переводов на субаккаут
     }
 
 }

@@ -11,7 +11,12 @@ namespace bot_analysis.Interfaces
         /// Сохранение ручных сделок в базу данных
         /// </summary>
         /// <param name="trades">Список ручных сделок</param>
-        Task SaveTradeFillsHistoryToDataBase(IEnumerable<TradeFillsHistory> trades);
-        Task <string> SearchLastTradeFillsHistoryFromDB();
+        Task SavePageTradeFillsHistoryToDataBase(IEnumerable<TradeFillsHistory> trades);
+        Task <string> SearcPointToReadNewDataForFillsHistory();
+        Task SavePageAccountTransfersToDataBase(IEnumerable<Bill> trades);
+        Task<string> SearchPointToReadNewDataForAccountTransfers();
+
+
+        
     }
 }

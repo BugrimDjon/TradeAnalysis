@@ -12,6 +12,11 @@ using System.Threading.Tasks;
 using bot_analysis.Config;
 using System.Security.Cryptography;
 using bot_analysis.Models;
+using static bot_analysis.API.API;
+using Mysqlx.Crud;
+using Org.BouncyCastle.Utilities.Collections;
+using System.IO;
+using System.Reflection.Metadata;
 //using bot_analysis.Response;
 
 namespace bot_analysis.Services
@@ -34,9 +39,9 @@ namespace bot_analysis.Services
         {
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
-            // Получаем JSON ответ по сделкам
-            string transactionsSpotJson = await GetTradesFillsHistorySpotJson(afterBefore, billId);
-            
+            // Получаем одну страницу JSON ответа по сделкам
+            string transactionsSpotJson = await GetTradeFillHistorySpotOnePageJson(afterBefore, billId);
+
             if (string.IsNullOrEmpty(transactionsSpotJson))
             {
                 Console.WriteLine("Не удалось получить данные.");
@@ -44,7 +49,7 @@ namespace bot_analysis.Services
             }
 
             // Десериализация ответа в объект ApiTrade
-            var result = JsonSerializer.Deserialize<ApiTrade>(transactionsSpotJson, options);
+            var result = JsonSerializer.Deserialize<ApiTradeFillsHistory>(transactionsSpotJson, options);
 
             // Возвращаем список сделок, если он существует, иначе пустой список
             return result?.data ?? new List<TradeFillsHistory>();
@@ -52,14 +57,14 @@ namespace bot_analysis.Services
 
 
 
-                    /// <summary>
-                    /// Возвращает DJSON по спотовым сделкам
-                    /// </summary>
-                    /// <param name="afterBefore">  указывает направление пагинации 
-                    ///            принимает значение PaginationDirection.After или
-                    ///            PaginationDirection.Before     </param>
-                    ///<param name="billId">указывает с какого billId начинать пагинацию </param>   
-        private async Task<string> GetTradesFillsHistorySpotJson(PaginationDirection? afterBefore = null, string? billId = null)
+        /// <summary>
+        /// Возвращает DJSON по спотовым сделкам
+        /// </summary>
+        /// <param name="afterBefore">  указывает направление пагинации 
+        ///            принимает значение PaginationDirection.After или
+        ///            PaginationDirection.Before     </param>
+        ///<param name="billId">указывает с какого billId начинать пагинацию </param>   
+        private async Task<string> GetTradeFillHistorySpotOnePageJson(PaginationDirection? afterBefore = null, string? billId = null)
         {
             string urlPath;
 
@@ -103,14 +108,14 @@ namespace bot_analysis.Services
         {
             string method = "GET";
             string body = ""; // Тело пустое для GET-запроса
-            string timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
+            string timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.ssZ");
 
             // Формируем строку для подписи
             string prehash = timestamp + method + urlPath + body;
             string sign = Sign(prehash, AppDataApiOKX.SecretKey);
 
             string url = "https://www.okx.com" + urlPath;
-            //Console.WriteLine("Посылаем запрос: " + urlPath);
+            Console.WriteLine("Посылаем запрос: " + urlPath);
 
 
             // Очищаем и устанавливаем заголовки для авторизации запроса
@@ -135,6 +140,85 @@ namespace bot_analysis.Services
                 Console.WriteLine($"Ошибка: {ex.Message}");
                 return "";
             }
+        }
+
+
+        public async Task<string> GetTransfersStateAsyncOnePageJson(PaginationDirection? afterBefore = null, string? billId = null)
+        {
+            string urlPath;
+
+            //            GET https://www.okx.com/api/v5/asset/transfer-state?ccy=USDT&type=0&limit=100
+
+            //urlPath = $"/api/v5/asset/transfer-state?transId=0";
+            //urlPath = "/api/v5/asset/deposit-history";
+            //urlPath = "/api/v5/asset/withdrawal-history";
+
+
+            Console.WriteLine("Производим считывание таблицы bill");
+
+            
+
+            if (string.IsNullOrEmpty(billId) && afterBefore == null)
+                urlPath = "/api/v5/account/bills-archive";
+            else
+            {
+                if (billId != "" && afterBefore != null)
+                {
+
+                    switch (afterBefore)
+                    {
+                        case PaginationDirection.After:
+                            urlPath = $"/api/v5/account/bills-archive?after={billId}";
+                            break;
+                        case PaginationDirection.Before:
+                            urlPath = $"/api/v5/account/bills-archive?before={billId}";
+                            break;
+                        default:
+                            throw new ArgumentException("Invalid direction.");
+                            
+
+                    }
+                }
+                else
+                {
+                    throw new ArgumentException("Необходимо указать оба параметра: afterBefore и billId.");
+                }
+
+            }
+
+            return (await GetJsonAsyncByUrlPath(urlPath));
+
+            //File.WriteAllText("C:\\Users\\Djon\\source\\repos\\bot_analysis\\для теста\\123.json", urlPath);
+            //Console.ReadLine();
+        }
+
+
+
+        /// <summary>
+        /// метод для запроса переводов на счет
+        /// </summary>
+        /// <returns> возвращает распарсеный JSON в виде списка List<Bill></returns>
+        public async Task<IEnumerable<Bill>> GetTransfersStateAsync(PaginationDirection? afterBefore = null, string? billId = null)
+        {
+            
+
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+
+            // Получаем одну страницу JSON ответа
+            string dataJson = await GetTransfersStateAsyncOnePageJson(afterBefore, billId);
+
+            if (string.IsNullOrEmpty(dataJson))
+            {
+                Console.WriteLine("Не удалось получить данные.");
+                return new List<Bill>(); // Возвращаем пустой список, если нет данных
+            }
+
+            // Десериализация ответа в объект ApiTrade
+            var result = JsonSerializer.Deserialize<ApiBill>(dataJson, options);
+
+            // Возвращаем список сделок, если он существует, иначе пустой список
+            return result?.data ?? new List<Bill>();
+
         }
 
     }
