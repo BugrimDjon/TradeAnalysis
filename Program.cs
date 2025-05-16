@@ -70,7 +70,7 @@ namespace bot_analysis
 
 
             //await tradeAnalysisService.UpdateTradesAsync();//Обновление ручных сделок 
-            await tradeAnalysisService.UpdateAccountTransfers();//Обновление переводов на счет
+            await tradeAnalysisService.UpdateAccountTransfers();//Обновление переводов на  счет
 
 
 
