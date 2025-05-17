@@ -31,11 +31,52 @@ namespace bot_analysis.Services
         }
 
 
+        
+        /// <summary>
+        /// метод для запроса информации по остановленным ботам 
+        /// </summary>
+        /// <returns> возвращает распарсеный JSON в виде списка List<OkxBot></returns>
+
+        public async Task<IEnumerable<OkxBot>> GetStoppedBotsAsync(PaginationDirection? afterBefore = null, string? billId = null)
+        {
+
+            //urlPath = $"/api/v5/asset/transfer-state?transId=0";
+            //urlPath = "/api/v5/asset/deposit-history";
+            //urlPath = "/api/v5/asset/withdrawal-history";
+
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+
+            // Получаем одну страницу JSON ответа 
+            string botStoppingJson = await GetBotStoppingJson(afterBefore, billId);
+
+            if (string.IsNullOrEmpty(botStoppingJson))
+            {
+                Console.WriteLine("Не удалось получить данные.");
+                return new List<OkxBot>(); // Возвращаем пустой список, если нет данных
+            }
+
+            Console.WriteLine(botStoppingJson);
+            // Десериализация ответа в объект ApiTrade
+            var result = JsonSerializer.Deserialize<ApiOkxBot>(botStoppingJson, options);
+
+            // Возвращаем список сделок, если он существует, иначе пустой список
+            return result?.data ?? new List<OkxBot>();
+
+
+
+
+        }
+
+
+
+
+
+
         /// <summary>
         /// метод для запроса сделок выполненых вручную
         /// </summary>
         /// <returns> возвращает распарсеный JSON в виде списка List<TradeFillsHistory></returns>
-        public async Task<IEnumerable<TradeFillsHistory>> GetTradesAsync(PaginationDirection? afterBefore = null, string? billId = null)
+        public async Task<IEnumerable<OkxTradeFillsHistory>> GetTradesAsync(PaginationDirection? afterBefore = null, string? billId = null)
         {
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
@@ -45,15 +86,60 @@ namespace bot_analysis.Services
             if (string.IsNullOrEmpty(transactionsSpotJson))
             {
                 Console.WriteLine("Не удалось получить данные.");
-                return new List<TradeFillsHistory>(); // Возвращаем пустой список, если нет данных
+                return new List<OkxTradeFillsHistory>(); // Возвращаем пустой список, если нет данных
             }
 
             // Десериализация ответа в объект ApiTrade
-            var result = JsonSerializer.Deserialize<ApiTradeFillsHistory>(transactionsSpotJson, options);
+            var result = JsonSerializer.Deserialize<ApiOkxTradeFillsHistory>(transactionsSpotJson, options);
 
             // Возвращаем список сделок, если он существует, иначе пустой список
-            return result?.data ?? new List<TradeFillsHistory>();
+            return result?.data ?? new List<OkxTradeFillsHistory>();
         }
+
+
+        /// <summary>
+        /// Возвращает DJSON по остановленным ботам
+        /// </summary>
+        /// <param name="afterBefore">  указывает направление пагинации 
+        ///            принимает значение PaginationDirection.After или
+        ///            PaginationDirection.Before     </param>
+        ///<param name="billId">указывает с какого billId начинать пагинацию </param>   
+        private async Task<string> GetBotStoppingJson(PaginationDirection? afterBefore = null, string? billId = null)
+        {
+            string urlPath;
+            
+            
+            if (afterBefore == null && billId == null)
+            {           
+                urlPath = "/api/v5/tradingBot/grid/orders-algo-history?algoOrdType=grid&limit=100";
+
+            }
+            else if (afterBefore != null && billId != null)
+            {
+                switch (afterBefore)
+                {
+                    case PaginationDirection.After:
+                        urlPath = $"/api/v5/tradingBot/grid/orders-algo-history?algoOrdType=grid&limit=100&after={billId}";
+                        break;
+                    case PaginationDirection.Before:
+                        urlPath = $"/api/v5/tradingBot/grid/orders-algo-history?algoOrdType=grid&limit=100&before={billId}";
+                        break;
+                    default:
+                        throw new ArgumentException("Invalid direction.");
+                }
+            }
+            else
+            {
+                throw new ArgumentException("Необходимо указать оба параметра: direction и algoId.");
+            }
+
+            Console.WriteLine(urlPath);
+            return await GetJsonAsyncByUrlPath(urlPath);
+        }
+
+
+
+
 
 
 
@@ -142,6 +228,7 @@ namespace bot_analysis.Services
             }
         }
 
+        
 
         public async Task<string> GetTransfersStateAsyncOnePageJson(PaginationDirection? afterBefore = null, string? billId = null)
         {
@@ -149,9 +236,8 @@ namespace bot_analysis.Services
 
             //            GET https://www.okx.com/api/v5/asset/transfer-state?ccy=USDT&type=0&limit=100
 
-            //urlPath = $"/api/v5/asset/transfer-state?transId=0";
-            //urlPath = "/api/v5/asset/deposit-history";
-            //urlPath = "/api/v5/asset/withdrawal-history";
+            
+
 
 
             Console.WriteLine("Производим считывание таблицы bill");
@@ -198,7 +284,7 @@ namespace bot_analysis.Services
         /// метод для запроса переводов на счет
         /// </summary>
         /// <returns> возвращает распарсеный JSON в виде списка List<Bill></returns>
-        public async Task<IEnumerable<Bill>> GetTransfersStateAsync(PaginationDirection? afterBefore = null, string? billId = null)
+        public async Task<IEnumerable<OkxBill>> GetTransfersStateAsync(PaginationDirection? afterBefore = null, string? billId = null)
         {
             
 
@@ -210,14 +296,14 @@ namespace bot_analysis.Services
             if (string.IsNullOrEmpty(dataJson))
             {
                 Console.WriteLine("Не удалось получить данные.");
-                return new List<Bill>(); // Возвращаем пустой список, если нет данных
+                return new List<OkxBill>(); // Возвращаем пустой список, если нет данных
             }
 
             // Десериализация ответа в объект ApiTrade
             var result = JsonSerializer.Deserialize<ApiBill>(dataJson, options);
 
             // Возвращаем список сделок, если он существует, иначе пустой список
-            return result?.data ?? new List<Bill>();
+            return result?.data ?? new List<OkxBill>();
 
         }
 
