@@ -9,6 +9,9 @@ using bot_analysis.Models;
 using System.Collections;
 using Google.Protobuf.WellKnownTypes;
 using System.Reflection.Metadata.Ecma335;
+using Mysqlx.Crud;
+using Mysqlx.Prepare;
+using System.Diagnostics;
 
 namespace bot_analysis.Services
 {
@@ -22,7 +25,90 @@ namespace bot_analysis.Services
         }
 
 
-        public async Task SavePageAccountTransfersToDataBase(IEnumerable<Bill> trades)
+        public async Task SavePageStoppedBotToDataBase(IEnumerable<OkxBot> bots)
+        {
+            string query = @"
+        INSERT INTO gridbots (
+            AlgoId, AlgoOrdType, InstId, InstType, State, Investment, BaseSz, QuoteSz, GridNum, GridProfit,
+            FloatProfit, TotalPnl, PnlRatio, CTime, UTime, StopType, StopResult, CancelType,
+            SlTriggerPx, TpTriggerPx, MaxPx, MinPx)
+        VALUES (
+            @AlgoId, @AlgoOrdType, @InstId, @InstType, @State, @Investment, @BaseSz, @QuoteSz, @GridNum, @GridProfit,
+            @FloatProfit, @TotalPnl, @PnlRatio, @CTime, @UTime, @StopType, @StopResult, @CancelType,
+            @SlTriggerPx, @TpTriggerPx, @MaxPx, @MinPx)
+        ON DUPLICATE KEY UPDATE
+            AlgoOrdType = VALUES(AlgoOrdType),
+            InstId = VALUES(InstId),
+            InstType = VALUES(InstType),
+            State = VALUES(State),
+            Investment = VALUES(Investment),
+            BaseSz = VALUES(BaseSz),
+            QuoteSz = VALUES(QuoteSz),
+            GridNum = VALUES(GridNum),
+            GridProfit = VALUES(GridProfit),
+            FloatProfit = VALUES(FloatProfit),
+            TotalPnl = VALUES(TotalPnl),
+            PnlRatio = VALUES(PnlRatio),
+            CTime = VALUES(CTime),
+            UTime = VALUES(UTime),
+            StopType = VALUES(StopType),
+            StopResult = VALUES(StopResult),
+            CancelType = VALUES(CancelType),
+            SlTriggerPx = VALUES(SlTriggerPx),
+            TpTriggerPx = VALUES(TpTriggerPx),
+            MaxPx = VALUES(MaxPx),
+            MinPx = VALUES(MinPx);";
+
+            if (_mySqlConnection.State != System.Data.ConnectionState.Open)
+                await _mySqlConnection.OpenAsync();
+            
+
+            foreach (var trade in bots)
+            {
+                using var cmd = new MySqlCommand(query, _mySqlConnection);
+
+                cmd.Parameters.AddWithValue("@AlgoId", trade.AlgoId);
+                cmd.Parameters.AddWithValue("@AlgoOrdType", trade.AlgoOrdType);
+                cmd.Parameters.AddWithValue("@InstId", trade.InstId);
+                cmd.Parameters.AddWithValue("@InstType", trade.InstType);
+                cmd.Parameters.AddWithValue("@State", trade.State);
+                cmd.Parameters.AddWithValue("@Investment", trade.Investment);
+                cmd.Parameters.AddWithValue("@BaseSz", trade.BaseSz);
+                cmd.Parameters.AddWithValue("@QuoteSz", trade.QuoteSz);
+                cmd.Parameters.AddWithValue("@GridNum", trade.GridNum);
+                cmd.Parameters.AddWithValue("@GridProfit", trade.GridProfit);
+                cmd.Parameters.AddWithValue("@FloatProfit", trade.FloatProfit);
+                cmd.Parameters.AddWithValue("@TotalPnl", trade.TotalPnl);
+                cmd.Parameters.AddWithValue("@PnlRatio", trade.PnlRatio);
+                cmd.Parameters.AddWithValue("@CTime", trade.CTime);
+                cmd.Parameters.AddWithValue("@UTime", trade.UTime);
+                cmd.Parameters.AddWithValue("@StopType", trade.StopType);
+                cmd.Parameters.AddWithValue("@StopResult", trade.StopResult);
+                cmd.Parameters.AddWithValue("@CancelType", trade.CancelType);
+                cmd.Parameters.AddWithValue("@SlTriggerPx",
+                    decimal.TryParse(trade.SlTriggerPx, out var sl) ? sl : (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@TpTriggerPx",
+                    decimal.TryParse(trade.TpTriggerPx, out var tp) ? tp : (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@MaxPx",
+                    decimal.TryParse(trade.MaxPx, out var max) ? max : (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@MinPx",
+                    decimal.TryParse(trade.MinPx, out var min) ? min : (object)DBNull.Value);
+
+
+
+                await cmd.ExecuteNonQueryAsync();
+            }
+
+            await _mySqlConnection.CloseAsync();
+
+
+        }
+
+
+
+
+
+        public async Task SavePageAccountTransfersToDataBase(IEnumerable<OkxBill> trades)
         {
             const string query = @"
                 INSERT INTO bills_table (
@@ -130,7 +216,7 @@ namespace bot_analysis.Services
 
 
 
-        public async Task SavePageTradeFillsHistoryToDataBase(IEnumerable<TradeFillsHistory> trades)
+        public async Task SavePageTradeFillsHistoryToDataBase(IEnumerable<OkxTradeFillsHistory> trades)
         {
             const string query = @"
 INSERT INTO tradefills(instType, instId, tradeId, ordId, clOrdId, billId, subType, tag, fillPx,
@@ -223,6 +309,32 @@ feeRate = VALUES(feeRate);
 
 
         /// <summary>
+        /// находит в таблице `gridbots` AlgoId такого бота, который не работает и имеет время
+        /// создания меньше или равное времени создания самого раннего работающего бота
+        /// 
+        /// </summary>
+        /// <returns> значение AlgoId в строковом представлении </returns>
+        public async  Task<string> SearchPointToReadNewDataForStoppedBot()
+        {
+            const string query = @"
+                                   SELECT AlgoId
+                                    FROM gridbots
+                                    WHERE CTime <= (
+                                        SELECT MIN(CTime)
+                                        FROM gridbots
+                                        WHERE State = 'running'
+                                    ) and State = 'stopped'
+                                    ORDER BY CTime DESC
+                                    LIMIT 1;";
+
+            var result = await ExecuteSqlQueryReturnParamString(query);
+
+            return (result);
+
+
+        }
+
+        /// <summary>
         /// находит в таблице `bills_table` billid на 50 строк созданый ранее чем последний
         /// для перезаписи последних 50 (исключает не полное отображение данных из за
         /// загруженности системы) и записи новых
@@ -231,16 +343,35 @@ feeRate = VALUES(feeRate);
 
         public async Task<string> SearchPointToReadNewDataForAccountTransfers()
         {
-            if (_mySqlConnection.State != System.Data.ConnectionState.Open)
-                await _mySqlConnection.OpenAsync();
-
-
-
+            
             const string query = @"
                                     SELECT billid
                                     FROM `bills_table`
                                     ORDER BY ts DESC
                                     LIMIT 1 OFFSET 49;";
+
+            var result = await ExecuteSqlQueryReturnParamString(query);
+
+            return (result);
+
+        }
+
+
+        public async Task ExecuteSQLQueryWithoutReturningParameters(string query)
+        {
+            if (_mySqlConnection.State != System.Data.ConnectionState.Open)
+                await _mySqlConnection.OpenAsync();
+            // Выполнение запроса
+
+            using var cmd = new MySqlCommand(query, _mySqlConnection);
+            await cmd.ExecuteNonQueryAsync(); // ← важно!
+
+        }
+        
+        public async Task<string> ExecuteSqlQueryReturnParamString(string query)
+        {
+            if (_mySqlConnection.State != System.Data.ConnectionState.Open)
+                await _mySqlConnection.OpenAsync();
 
             using var cmd = new MySqlCommand(query, _mySqlConnection);
 
@@ -249,6 +380,33 @@ feeRate = VALUES(feeRate);
             return (Convert.ToString(result));
 
         }
+
+
+
+        //обновить используемые торговые пары
+        public async Task UpdateUniqueTradingPairsInBD()
+        {
+            
+            const string query = @"INSERT IGNORE INTO `tradingpairs` (OKX)
+                                    SELECT DISTINCT InstId
+                                    FROM bills_table
+                                    WHERE InstId IS NOT NULL;";
+
+            await ExecuteSQLQueryWithoutReturningParameters(query);
+        }
+            
+        public async Task UpdateUniqueCoinsInBD()
+        {
+            const string query = @"INSERT IGNORE INTO `coins` (OKX)
+                                    SELECT DISTINCT ccy
+                                    FROM bills_table
+                                    WHERE ccy IS NOT NULL;";
+
+            await ExecuteSQLQueryWithoutReturningParameters(query);
+        }
+
+
+
 
 
 
@@ -259,24 +417,44 @@ feeRate = VALUES(feeRate);
         /// <returns> значение billid в строковом представлении </returns>
         public async Task <string> SearcPointToReadNewDataForFillsHistory()
         {
-            if (_mySqlConnection.State != System.Data.ConnectionState.Open)
-                await _mySqlConnection.OpenAsync();
-
-
-
+            
             const string query = @"
                                     SELECT billid
                                     FROM tradefills
                                     ORDER BY fillTime DESC
-                                    LIMIT 1;";
+                                    LIMIT 1 OFFSET 49;";
+
+            var result = await ExecuteSqlQueryReturnParamString(query);
+
+            return (result);
+
+        }
+
+
+        public async Task <IEnumerable<string>> GetUniqueCoinsAsync()
+        {
+            var result = new List<string>();
+
+            if (_mySqlConnection.State != System.Data.ConnectionState.Open)
+                await _mySqlConnection.OpenAsync();
+            
+            string query = "SELECT OKX FROM coins";
 
             using var cmd = new MySqlCommand(query, _mySqlConnection);
 
-            var result = await cmd.ExecuteScalarAsync();
-            
-            return (Convert.ToString(result));
-            
+            using var reader = await cmd.ExecuteReaderAsync();
+
+            while (await reader.ReadAsync())
+            {
+                string okxValue = reader["OKX"].ToString();
+
+                result.Add(okxValue);
+            }
+
+            return result;
         }
+
+        
 
 
     }

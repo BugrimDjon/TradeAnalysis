@@ -31,13 +31,13 @@ namespace bot_analysis.Services
         }
 
 
-        
+
         /// <summary>
         /// метод для запроса информации по остановленным ботам 
         /// </summary>
         /// <returns> возвращает распарсеный JSON в виде списка List<OkxBot></returns>
 
-        public async Task<IEnumerable<OkxBot>> GetStoppedBotsAsync(PaginationDirection? afterBefore = null, string? billId = null)
+        public async Task<IEnumerable<OkxBot>> GetInfoBotsAsync(bool oldBot, PaginationDirection? afterBefore = null, string? billId = null)
         {
 
             //urlPath = $"/api/v5/asset/transfer-state?transId=0";
@@ -47,7 +47,7 @@ namespace bot_analysis.Services
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
             // Получаем одну страницу JSON ответа 
-            string botStoppingJson = await GetBotStoppingJson(afterBefore, billId);
+            string botStoppingJson = await GetBotStoppingJson(oldBot, afterBefore, billId);
 
             if (string.IsNullOrEmpty(botStoppingJson))
             {
@@ -104,25 +104,34 @@ namespace bot_analysis.Services
         ///            принимает значение PaginationDirection.After или
         ///            PaginationDirection.Before     </param>
         ///<param name="billId">указывает с какого billId начинать пагинацию </param>   
-        private async Task<string> GetBotStoppingJson(PaginationDirection? afterBefore = null, string? billId = null)
+        private async Task<string> GetBotStoppingJson(bool oldBot, PaginationDirection? afterBefore = null, string? algoId = null)
         {
             string urlPath;
-            
-            
-            if (afterBefore == null && billId == null)
-            {           
-                urlPath = "/api/v5/tradingBot/grid/orders-algo-history?algoOrdType=grid&limit=100";
+
+
+            if (afterBefore == null && algoId == null)
+            {
+                if (oldBot)
+                    urlPath = "/api/v5/tradingBot/grid/orders-algo-history?algoOrdType=grid&limit=100";
+                else
+                    urlPath = "/api/v5/tradingBot/grid/orders-algo-pending?algoOrdType=grid&limit=100";
 
             }
-            else if (afterBefore != null && billId != null)
+            else if (afterBefore != null && algoId != null)
             {
                 switch (afterBefore)
                 {
                     case PaginationDirection.After:
-                        urlPath = $"/api/v5/tradingBot/grid/orders-algo-history?algoOrdType=grid&limit=100&after={billId}";
+                        if (oldBot)
+                            urlPath = $"/api/v5/tradingBot/grid/orders-algo-history?algoOrdType=grid&limit=100&after={algoId}";
+                        else
+                            urlPath = $"/api/v5/tradingBot/grid/orders-algo-pending?algoOrdType=grid&limit=100&after={algoId}";
                         break;
                     case PaginationDirection.Before:
-                        urlPath = $"/api/v5/tradingBot/grid/orders-algo-history?algoOrdType=grid&limit=100&before={billId}";
+                        if (oldBot)
+                            urlPath = $"/api/v5/tradingBot/grid/orders-algo-history?algoOrdType=grid&limit=100&before={algoId}";
+                        else
+                            urlPath = $"/api/v5/tradingBot/grid/orders-algo-pending?algoOrdType=grid&limit=100&before={algoId}";
                         break;
                     default:
                         throw new ArgumentException("Invalid direction.");
@@ -228,7 +237,7 @@ namespace bot_analysis.Services
             }
         }
 
-        
+
 
         public async Task<string> GetTransfersStateAsyncOnePageJson(PaginationDirection? afterBefore = null, string? billId = null)
         {
@@ -236,13 +245,13 @@ namespace bot_analysis.Services
 
             //            GET https://www.okx.com/api/v5/asset/transfer-state?ccy=USDT&type=0&limit=100
 
-            
+
 
 
 
             Console.WriteLine("Производим считывание таблицы bill");
 
-            
+
 
             if (string.IsNullOrEmpty(billId) && afterBefore == null)
                 urlPath = "/api/v5/account/bills-archive";
@@ -261,7 +270,7 @@ namespace bot_analysis.Services
                             break;
                         default:
                             throw new ArgumentException("Invalid direction.");
-                            
+
 
                     }
                 }
@@ -286,7 +295,7 @@ namespace bot_analysis.Services
         /// <returns> возвращает распарсеный JSON в виде списка List<Bill></returns>
         public async Task<IEnumerable<OkxBill>> GetTransfersStateAsync(PaginationDirection? afterBefore = null, string? billId = null)
         {
-            
+
 
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 

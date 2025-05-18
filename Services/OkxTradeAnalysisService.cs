@@ -12,6 +12,9 @@ using static System.Runtime.InteropServices.JavaScript.JSType;
 using System.Drawing;
 using System.Text.Json;
 using Mysqlx.Crud;
+using System.Diagnostics.Metrics;
+using System.Diagnostics;
+using System.Reflection;
 //using bot_analysis.Services;
 
 namespace bot_analysis.Services
@@ -34,12 +37,155 @@ namespace bot_analysis.Services
         }
 
 
-        
+
         public async Task UpdateBotsAsync()
         {
-            
+      /*      //вычитка ботов звкончивших работу
+            await UpdateStoppedRunningBotsAsync(true);
+            //вычитка работающих ботов
+            await UpdateStoppedRunningBotsAsync(false);*/
+            //обновление сделок по остановленным бртам
+            await UpdateTradeStoppedBots();
+        }
 
-            var bots = await _apiClient.GetStoppedBotsAsync();
+        private async Task UpdateTradeStoppedBots()
+        {
+            do
+            {
+                // найти AlgoId который завершил работу и не обрабатывался
+                string query = @"select AlgoId from gridbots
+                            where state='stopped' and IsProcessed=0
+                            order by ctime 	asc
+                            limit 1;";
+                query = await _dataBase.ExecuteSqlQueryReturnParamString(query);
+                Console.WriteLine(query);
+            }while (true);
+        }
+
+
+        private async Task RRRRRRed()
+        {
+            do
+            {
+                //ограничение скорости вызова запроса 5 запросов в 2 секунды
+                await RateLimiter.EnforceRateLimit(2);
+
+                if ((counter == 0) && string.IsNullOrEmpty(pointRead))
+                {
+                    //если выполнились условия то будем считать что таблица пуста
+                    // будем вычитывать все данные от новых к старым
+                    trades = await _apiClient.GetTransfersStateAsync();
+                    firstFill = true; //учитывает направление считывания от новых к старым
+                }
+                else
+                {
+                    if (firstFill)
+                        //считываем данные от новых к старым
+                        trades = await _apiClient.GetTransfersStateAsync(PaginationDirection.After, pointRead.ToString());
+                    else
+                        //считываем данные от старых к новым
+                        trades = await _apiClient.GetTransfersStateAsync(PaginationDirection.Before, pointRead.ToString());
+                }
+                len += trades.Count();
+
+                if (trades.Count() == 0)
+                {
+                    Console.WriteLine("Считано " + len + " сделок");
+                    return;
+                }
+
+                await _dataBase.SavePageAccountTransfersToDataBase(trades);
+                Console.WriteLine($"Получено сделок: {len}");
+
+                pointRead = trades.LastOrDefault()?.BillId ?? "";
+
+
+                if (len < 100)
+                {
+                    Console.WriteLine("Считано " + len + " сделок");
+                    break;
+                }
+                counter++;
+            }
+            while (true);
+
+        }
+
+
+
+
+
+
+
+
+        private async Task UpdateStoppedRunningBotsAsync(bool stoppedBot)
+        {
+
+            int len = 0;
+            int counter = 0;
+            string pointRead = "";
+            bool firstFill = false;
+
+            IEnumerable<OkxBot> bots;
+
+            //нахотим точку отсчета с которой производить считывание
+            if (stoppedBot)
+
+                pointRead = await _dataBase.SearchPointToReadNewDataForStoppedBot();
+            else
+                pointRead = "";
+
+            do
+            {
+                //ограничение скорости вызова запроса 10 запросов в 1 секунды
+                await RateLimiter.EnforceRateLimit(10);
+
+                if ((counter == 0) && string.IsNullOrEmpty(pointRead))
+                {
+                    //если выполнились условия то будем считать что таблица пуста
+                    // будем вычитывать все данные от новых к старым
+                    bots = await _apiClient.GetInfoBotsAsync(stoppedBot);
+                    firstFill = true; //учитывает направление считывания от новых к старым
+                }
+                else
+                {
+                    if (firstFill)
+                        //считываем данные от новых к старым
+                        bots = await _apiClient.GetInfoBotsAsync(stoppedBot, PaginationDirection.After, pointRead.ToString());
+                    else
+                        //считываем данные от старых к новым
+                        bots = await _apiClient.GetInfoBotsAsync(stoppedBot, PaginationDirection.Before, pointRead.ToString());
+                }
+                len += bots.Count();
+
+                if (bots.Count() == 0)
+                {
+                    Console.WriteLine("Считано " + len + " ботов");
+                    return;
+                }
+
+                await _dataBase.SavePageStoppedBotToDataBase(bots);
+
+                //Console.WriteLine($"Получено: {len} ботов");
+
+                pointRead = bots.LastOrDefault()?.AlgoId ?? "";
+
+
+                if (len < 100)
+                {
+                    Console.WriteLine("Считано " + len + " ботов");
+                    break;
+                }
+                counter++;
+            }
+            while (true);
+
+
+
+
+
+
+
         }
 
 
@@ -87,7 +233,7 @@ namespace bot_analysis.Services
                 tempReport.BuyTotal = await _dataBase.ExecuteSqlQueryReturnParamString(query);
 
                 //Средняя цена покупки
-                
+
                 if (!string.IsNullOrWhiteSpace(tempReport.BuyAmount) &&
                     !string.IsNullOrWhiteSpace(tempReport.BuyTotal))
                 {
@@ -96,7 +242,7 @@ namespace bot_analysis.Services
                     tempReport.BuyAvgPrice = Convert.ToString(
                         Convert.ToDecimal(tempReport.BuyTotal) /
                         Convert.ToDecimal(tempReport.BuyAmount));
-                    
+
                 }
 
                 //Количество проданных монет
