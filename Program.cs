@@ -62,6 +62,8 @@ namespace bot_analysis
             
             // Создаем экземпляр HttpClient
             var httpClient = new HttpClient();
+
+            Console.WriteLine(DateTime.UtcNow.ToUniversalTime());
             
 
             ITradeApiClient okxApiClient = new OkxApiClient(httpClient);

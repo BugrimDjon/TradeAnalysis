@@ -46,7 +46,7 @@ namespace bot_analysis.Services
 
             // Получаем одну страницу JSON ответа по сделкам
             string responseJson = await GetPageJsonAsync(OkxUrl, afterBefore, pointRead);
-            Console.WriteLine(responseJson);
+            //Console.WriteLine(responseJson);
             if (string.IsNullOrEmpty(responseJson))
             {
                 Console.WriteLine("Не удалось получить данные.");
@@ -328,7 +328,7 @@ namespace bot_analysis.Services
             string sign = Sign(prehash, AppDataApiOKX.SecretKey);
 
             string url = "https://www.okx.com" + urlPath;
-            Console.WriteLine("Посылаем запрос: " + urlPath);
+            //Console.WriteLine("Посылаем запрос: " + urlPath);
 
 
             // Очищаем и устанавливаем заголовки для авторизации запроса
