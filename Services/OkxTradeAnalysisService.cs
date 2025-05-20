@@ -68,7 +68,7 @@ namespace bot_analysis.Services
                             limit 1;";
             string algoId = await _dataBase.ExecuteSqlQueryReturnParamString(query);
 
-            algoId = "2500905417082142720";
+            algoId = "2397237312569737216";
             //найти точку с которой надо производить вычитку.
             //эта точеа имеет время срабатывания на 20 позиций раньше
             //для исключения некоректных данных при последнем считывании
@@ -80,7 +80,7 @@ namespace bot_analysis.Services
                             LIMIT 1 offset 20;";
             pointRead = await _dataBase.ExecuteSqlQueryReturnParamString(query);
 
-            pointRead= "2501060812886614016";
+            pointRead= "2405378326169493504";
             /*Console.WriteLine(await _apiClient.GetPageJsonAsync
                 (OkxUrlConst.SubOrdersBot(algoId),PaginationDirection.Before,pointRead));*/
             /*
