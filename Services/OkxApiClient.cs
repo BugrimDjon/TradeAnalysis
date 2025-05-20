@@ -24,10 +24,12 @@ namespace bot_analysis.Services
     public class OkxApiClient : ITradeApiClient
     {
         private readonly HttpClient _httpClient;
+        private readonly ILogger _logger;
 
-        public OkxApiClient(HttpClient httpClient)
+        public OkxApiClient(HttpClient httpClient, ILogger logger)
         {
             _httpClient = httpClient;
+            _logger = logger;
         }
 
 
