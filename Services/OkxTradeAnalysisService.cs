@@ -15,6 +15,9 @@ using Mysqlx.Crud;
 using System.Diagnostics.Metrics;
 using System.Diagnostics;
 using System.Reflection;
+using System.Net;
+using Org.BouncyCastle.Asn1.X509;
+using System.Collections.Generic;
 //using bot_analysis.Services;
 
 namespace bot_analysis.Services
@@ -45,78 +48,102 @@ namespace bot_analysis.Services
             //вычитка работающих ботов
             await UpdateStoppedRunningBotsAsync(false);*/
             //обновление сделок по остановленным бртам
-            await UpdateTradeStoppedBots();
+            await UpdateOrdStoppedBots();
         }
 
-        private async Task UpdateTradeStoppedBots()
+        private async Task UpdateOrdStoppedBots()
         {
-            do
-            {
-                // найти AlgoId который завершил работу и не обрабатывался
-                string query = @"select AlgoId from gridbots
+            int len = 0;
+            int counter = 0;
+            string pointRead = "";
+            string pageJson;
+            bool firstFill = false;
+
+            IEnumerable<OkxBotOrder> pageData;
+
+            // найти AlgoId который завершил работу и не обрабатывался
+            string query = @"select AlgoId from gridbots
                             where state='stopped' and IsProcessed=0
                             order by ctime 	asc
                             limit 1;";
-                query = await _dataBase.ExecuteSqlQueryReturnParamString(query);
-                Console.WriteLine(query);
-            }while (true);
-        }
+            string algoId = await _dataBase.ExecuteSqlQueryReturnParamString(query);
+
+            algoId = "2500905417082142720";
+            //найти точку с которой надо производить вычитку.
+            //эта точеа имеет время срабатывания на 20 позиций раньше
+            //для исключения некоректных данных при последнем считывании
+            //то есть перезапишет данные по последним 20 сделкам и будет писать новые
+
+            query =$@"select ordId from bot_orders
+                            where algoId = {algoId}
+                            ORDER BY cTime DESC
+                            LIMIT 1 offset 20;";
+            pointRead = await _dataBase.ExecuteSqlQueryReturnParamString(query);
+
+            pointRead= "2501060812886614016";
+            /*Console.WriteLine(await _apiClient.GetPageJsonAsync
+                (OkxUrlConst.SubOrdersBot(algoId),PaginationDirection.Before,pointRead));*/
+            /*
+                        pageData = await _apiClient.GetApiDataAsync<ApiOkxBotOrder,OkxBotOrder>(
+                                            OkxUrlConst.SubOrdersBot(algoId), 
+                                            PaginationDirection.Before, pointRead);*/
 
 
-        private async Task RRRRRRed()
-        {
             do
             {
-                //ограничение скорости вызова запроса 5 запросов в 2 секунды
-                await RateLimiter.EnforceRateLimit(2);
+
+
+                //ограничение скорости вызова запроса 10 запросов в 1 секунды
+                await RateLimiter.EnforceRateLimit(10);
 
                 if ((counter == 0) && string.IsNullOrEmpty(pointRead))
                 {
                     //если выполнились условия то будем считать что таблица пуста
                     // будем вычитывать все данные от новых к старым
-                    trades = await _apiClient.GetTransfersStateAsync();
+
+                    pageData = await _apiClient.GetApiDataAsync<ApiOkxBotOrder, OkxBotOrder>(
+                                OkxUrlConst.SubOrdersBot(algoId));
                     firstFill = true; //учитывает направление считывания от новых к старым
                 }
                 else
                 {
                     if (firstFill)
                         //считываем данные от новых к старым
-                        trades = await _apiClient.GetTransfersStateAsync(PaginationDirection.After, pointRead.ToString());
+                        pageData = await _apiClient.GetApiDataAsync<ApiOkxBotOrder, OkxBotOrder>(
+                                OkxUrlConst.SubOrdersBot(algoId),
+                                PaginationDirection.After, pointRead);
                     else
                         //считываем данные от старых к новым
-                        trades = await _apiClient.GetTransfersStateAsync(PaginationDirection.Before, pointRead.ToString());
+                        pageData = await _apiClient.GetApiDataAsync<ApiOkxBotOrder, OkxBotOrder>(
+                                OkxUrlConst.SubOrdersBot(algoId),
+                                PaginationDirection.Before, pointRead);
                 }
-                len += trades.Count();
+                len += pageData.Count();
 
-                if (trades.Count() == 0)
+                if (pageData.Count() == 0)
                 {
-                    Console.WriteLine("Считано " + len + " сделок");
+                    Console.WriteLine("Считано " + len + " записей");
                     return;
                 }
+                
+                await _dataBase.SaveOrdStoppedBotsToDB(pageData);
 
-                await _dataBase.SavePageAccountTransfersToDataBase(trades);
-                Console.WriteLine($"Получено сделок: {len}");
+                //Console.WriteLine($"Получено: {len} ботов");
 
-                pointRead = trades.LastOrDefault()?.BillId ?? "";
-
-
-                if (len < 100)
+                pointRead = pageData.LastOrDefault()?.ordId ?? "";
+                //pointRead = pageData.FirstOrDefault()?.ordId ?? "";
+                
+                if (pageData.Count() < 100)
                 {
-                    Console.WriteLine("Считано " + len + " сделок");
+                    Console.WriteLine("Считано " + len + " записей");
                     break;
                 }
                 counter++;
             }
             while (true);
 
+
         }
-
-
-
-
-
-
-
 
         private async Task UpdateStoppedRunningBotsAsync(bool stoppedBot)
         {

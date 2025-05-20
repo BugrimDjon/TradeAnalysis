@@ -7,14 +7,14 @@ using System.Threading.Tasks;
 namespace bot_analysis.Models
 {
 
-    public class ApiTradeFillsHistory
+    public class ApiOkxTradeFillsHistory
     {
         public string code { get; set; }
         public string msg { get; set; }
-        public List<TradeFillsHistory>? data { get; set; }
+        public List<OkxTradeFillsHistory>? data { get; set; }
     }
 
-    public class TradeFillsHistory
+    public class OkxTradeFillsHistory
     {
         public string instType { get; set; }    //Тип инструмента
         public string instId { get; set; }      //ID инструмента

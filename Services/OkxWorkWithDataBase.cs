@@ -25,6 +25,13 @@ namespace bot_analysis.Services
         }
 
 
+
+
+
+
+
+
+
         public async Task SavePageStoppedBotToDataBase(IEnumerable<OkxBot> bots)
         {
             string query = @"
@@ -213,8 +220,92 @@ namespace bot_analysis.Services
         }
 
 
+        public async Task SaveOrdStoppedBotsToDB(IEnumerable<OkxBotOrder> BotOrder)
+        {
+            const string query = @"
+    INSERT INTO bot_orders(algoId, algoClOrdId, algoOrdType, instType, instId, 
+                groupId, ordId, cTime, uTime, tdMode, ccy, ordType, sz, state, 
+                side, px, avgPx, accFillSz, fee, feeCcy, rebate, rebateCcy, pnl, 
+                posSide, lever, ctVal, tag)
+
+    VALUES (@algoId, @algoClOrdId, @algoOrdType, @instType, @instId,
+                @groupId, @ordId, @cTime, @uTime, @tdMode, @ccy, @ordType, @sz, @state,
+                @side, @px, @avgPx, @accFillSz, @fee, @feeCcy, @rebate, @rebateCcy, @pnl,
+                @posSide, @lever, @ctVal, @tag)
+
+    ON DUPLICATE KEY UPDATE
+                algoId= VALUES( algoId), 
+                algoClOrdId= VALUES( algoClOrdId), 
+                algoOrdType= VALUES( algoOrdType), 
+                instType= VALUES( instType), 
+                instId= VALUES( instId), 
+                groupId= VALUES( groupId), 
+                cTime= VALUES( cTime), 
+                uTime= VALUES( uTime), 
+                tdMode= VALUES( tdMode), 
+                ccy= VALUES( ccy), 
+                ordType= VALUES( ordType), 
+                sz= VALUES( sz), 
+                state= VALUES( state), 
+                side= VALUES( side), 
+                px= VALUES( px), 
+                avgPx= VALUES( avgPx), 
+                accFillSz= VALUES( accFillSz), 
+                fee= VALUES( fee), 
+                feeCcy= VALUES( feeCcy), 
+                rebate= VALUES( rebate), 
+                rebateCcy= VALUES( rebateCcy), 
+                pnl= VALUES( pnl), 
+                posSide= VALUES( posSide), 
+                lever= VALUES( lever), 
+                ctVal= VALUES( ctVal), 
+                tag= VALUES( tag)
+";
 
 
+            if (_mySqlConnection.State != System.Data.ConnectionState.Open)
+                await _mySqlConnection.OpenAsync();
+
+
+            foreach (var trade in BotOrder)
+            {
+                using var cmd = new MySqlCommand(query, _mySqlConnection);
+
+
+                cmd.Parameters.AddWithValue("@algoId", ConvertToNullableLong(trade.algoId));
+                cmd.Parameters.AddWithValue("@algoClOrdId", trade.algoClOrdId);
+                cmd.Parameters.AddWithValue("@algoOrdType", trade.algoOrdType);
+                cmd.Parameters.AddWithValue("@instType", trade.instType);
+                cmd.Parameters.AddWithValue("@instId", trade.instId);
+                cmd.Parameters.AddWithValue("@groupId", trade.groupId);
+                cmd.Parameters.AddWithValue("@ordId", ConvertToNullableLong(trade.ordId));
+                cmd.Parameters.AddWithValue("@cTime", ConvertToNullableLong(trade.cTime));
+                cmd.Parameters.AddWithValue("@uTime", ConvertToNullableLong(trade.uTime));
+                cmd.Parameters.AddWithValue("@tdMode", trade.tdMode);
+                cmd.Parameters.AddWithValue("@ccy", trade.ccy);
+                cmd.Parameters.AddWithValue("@ordType", trade.ordType);
+                cmd.Parameters.AddWithValue("@sz", ConvertToNullableDecimal(trade.sz));
+                cmd.Parameters.AddWithValue("@state", trade.state);
+                cmd.Parameters.AddWithValue("@side", trade.side);
+                cmd.Parameters.AddWithValue("@px", ConvertToNullableDecimal(trade.px));
+                cmd.Parameters.AddWithValue("@avgPx", ConvertToNullableDecimal(trade.avgPx));
+                cmd.Parameters.AddWithValue("@accFillSz", ConvertToNullableDecimal(trade.accFillSz));
+                cmd.Parameters.AddWithValue("@fee", ConvertToNullableDecimal(trade.fee));
+                cmd.Parameters.AddWithValue("@feeCcy", trade.feeCcy);
+                cmd.Parameters.AddWithValue("@rebate", ConvertToNullableDecimal(trade.rebate));
+                cmd.Parameters.AddWithValue("@rebateCcy", trade.rebateCcy);
+                cmd.Parameters.AddWithValue("@pnl", ConvertToNullableDecimal(trade.pnl));
+                cmd.Parameters.AddWithValue("@posSide", trade.posSide);
+                cmd.Parameters.AddWithValue("@lever", trade.lever);
+                cmd.Parameters.AddWithValue("@ctVal", trade.ctVal);
+                cmd.Parameters.AddWithValue("@tag", trade.tag);
+
+
+
+                await cmd.ExecuteNonQueryAsync();
+
+            }
+        }
 
         public async Task SavePageTradeFillsHistoryToDataBase(IEnumerable<OkxTradeFillsHistory> trades)
         {
@@ -293,6 +384,7 @@ feeRate = VALUES(feeRate);
             await _mySqlConnection.CloseAsync();
         }
 
+
         private decimal? ConvertToNullableDecimal(string value)
         {
             //Console.WriteLine(value);
@@ -311,7 +403,7 @@ feeRate = VALUES(feeRate);
         /// <summary>
         /// находит в таблице `gridbots` AlgoId такого бота, который не работает и имеет время
         /// создания меньше или равное времени создания самого раннего работающего бота
-        /// 
+        /// загруженности системы) и записи новых
         /// </summary>
         /// <returns> значение AlgoId в строковом представлении </returns>
         public async  Task<string> SearchPointToReadNewDataForStoppedBot()
@@ -429,6 +521,11 @@ feeRate = VALUES(feeRate);
             return (result);
 
         }
+
+
+
+
+
 
 
         public async Task <IEnumerable<string>> GetUniqueCoinsAsync()

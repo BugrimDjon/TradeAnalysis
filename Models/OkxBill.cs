@@ -11,9 +11,9 @@ namespace bot_analysis.Models
     {
         public string code { get; set; }
         public string msg { get; set; }
-        public List<Bill>? data { get; set; }
+        public List<OkxBill>? data { get; set; }
     }
-    public class Bill
+    public class OkxBill
     {
         // Баланс после транзакции
         public string Bal { get; set; }

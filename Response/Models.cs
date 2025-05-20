@@ -13,11 +13,11 @@ namespace bot_analysis.Models
     {
         public string code { get; set; } // Код ответа от API, "0" — успешно
         public string msg { get; set; }  // Сообщение от API (обычно пустое при успешном ответе)
-        public List<GridBotData> Data { get; set; } // Список завершённых или активных грид-ботов
+        public List<GridBotData__OLD> Data { get; set; } // Список завершённых или активных грид-ботов
     }
 
     // Основной класс, представляющий один грид-бот
-    public class GridBotData
+    public class GridBotData__OLD
     {
         public string AlgoId { get; set; }           // Уникальный идентификатор бота
         public string AlgoOrdType { get; set; }      // Тип алгоритма (обычно "grid")

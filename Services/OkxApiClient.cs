@@ -21,7 +21,7 @@ using System.Reflection.Metadata;
 
 namespace bot_analysis.Services
 {
-    internal class OkxApiClient : ITradeApiClient
+    public class OkxApiClient : ITradeApiClient
     {
         private readonly HttpClient _httpClient;
 
@@ -30,6 +30,118 @@ namespace bot_analysis.Services
             _httpClient = httpClient;
         }
 
+
+        /// <summary>
+        /// универсальный метод для запроса по API
+        /// </summary>
+        /// <returns> возвращает распарсеный JSON в виде списка List<TData></returns>
+        public async Task<IEnumerable<TData>> GetApiDataAsync<TResponse,TData>
+                                        (string OkxUrl,
+                                        PaginationDirection? afterBefore = null,
+                                        string? pointRead = null)
+            where TResponse : IApiResponseWithData<TData>
+
+        {
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+
+            // Получаем одну страницу JSON ответа по сделкам
+            string responseJson = await GetPageJsonAsync(OkxUrl, afterBefore, pointRead);
+            Console.WriteLine(responseJson);
+            if (string.IsNullOrEmpty(responseJson))
+            {
+                Console.WriteLine("Не удалось получить данные.");
+                return new List<TData>(); // Возвращаем пустой список, если нет данных
+            }
+
+            // Десериализация ответа в объект ApiTrade
+            var result = JsonSerializer.Deserialize<TResponse>(responseJson, options);
+
+            // Возвращаем список сделок, если он существует, иначе пустой список
+            return result?.data ?? new List<TData>();
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        /// <summary>
+        /// метод для запроса сделок выполненых ботами
+        /// </summary>
+        /// <returns> возвращает распарсеный JSON в виде списка List<ApiOkxBot></returns>
+        public async Task<IEnumerable<OkxBotOrder>> GetOrdesBotAsync
+                                        (string OkxUrl,
+                                        PaginationDirection? afterBefore = null, 
+                                        string? pointRead = null)
+
+        {
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+
+            // Получаем одну страницу JSON ответа по сделкам
+            string responseJson = await  GetPageJsonAsync(OkxUrl, afterBefore, pointRead);
+
+            if (string.IsNullOrEmpty(responseJson))
+            {
+                Console.WriteLine("Не удалось получить данные.");
+                return new List<OkxBotOrder>(); // Возвращаем пустой список, если нет данных
+            }
+
+            // Десериализация ответа в объект ApiTrade
+            var result = JsonSerializer.Deserialize<ApiOkxBotOrder>(responseJson, options);
+
+            // Возвращаем список сделок, если он существует, иначе пустой список
+            return result?.data ?? new List<OkxBotOrder>();
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+        public async Task<string> GetPageJsonAsync(string urlPath,
+                                                   PaginationDirection? direction = null,
+                                                   string? point = null)
+        {
+
+            if (direction != null && !string.IsNullOrEmpty(point))
+            {
+
+
+                string param = direction switch
+                {
+                    PaginationDirection.After => $"&after={point}",
+                    PaginationDirection.Before => $"&before={point}",
+                    _ => throw new ArgumentException("Некорректное направление пагинации")
+                };
+
+                urlPath += param;
+            }
+
+           // Console.WriteLine($"Запрос URL: {urlPath}");
+            return await GetJsonAsyncByUrlPath(urlPath);
+        }
 
 
         /// <summary>
@@ -145,6 +257,12 @@ namespace bot_analysis.Services
             Console.WriteLine(urlPath);
             return await GetJsonAsyncByUrlPath(urlPath);
         }
+
+
+        
+
+
+
 
 
 

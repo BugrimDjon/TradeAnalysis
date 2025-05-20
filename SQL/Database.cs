@@ -24,7 +24,7 @@ namespace bot_analysis.SQL
             return count > 0;
         }
 
-        public static async Task InsertGridBotAsync(GridBotData bot, string connectionString)
+        public static async Task InsertGridBotAsync(GridBotData__OLD bot, string connectionString)
         {
             string query = @"
         INSERT INTO gridbots (

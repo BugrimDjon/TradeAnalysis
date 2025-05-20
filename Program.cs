@@ -14,6 +14,7 @@ using MySqlX.XDevAPI.Common;
 using bot_analysis.Interfaces;
 using bot_analysis.Services;
 using bot_analysis.Config;
+using Org.BouncyCastle.X509.Store;
 
 
 /*Получить активные боты	GET /api/v5/tradingBot/grid/orders-algo-pending
@@ -69,12 +70,16 @@ namespace bot_analysis
 
 
 
+            await tradeAnalysisService.UpdateBotsAsync();   //Обновление информации по ботам
+
             //await tradeAnalysisService.UpdateTradesAsync();//Обновление ручных сделок 
-            await tradeAnalysisService.UpdateAccountTransfers();//Обновление переводов на  счет
+            //await tradeAnalysisService.UpdateAccountTransfersAsync();//Обновление переводов на счет
 
+            //await tradeAnalysisService.UpdateUniqueTradingPairsAsync();//обновить уникальные торговые пары
+            //await tradeAnalysisService.UpdateUniqueCoinsAsync();//обновить уникальные монеты
 
-
-
+            //сгенерировать и созранить отчет
+            //await tradeAnalysisService.GenerateReportAsync(await tradeAnalysisService.GenerateReport());
 
             Console.WriteLine("Для выхода нажмите клавишу");
             Console.Read();
