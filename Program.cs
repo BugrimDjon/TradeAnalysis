@@ -16,7 +16,7 @@ using bot_analysis.Services;
 using bot_analysis.Config;
 using Org.BouncyCastle.X509.Store;
 
-
+    
 /*Получить активные боты	GET /api/v5/tradingBot/grid/orders-algo-pending
 Получить завершённые (история) боты	GET /api/v5/tradingBot/grid/orders-algo-history
 Получить ордера по конкретному боту	GET /api/v5/tradingBot/grid/sub-orders?algoId=...*/
@@ -65,17 +65,18 @@ namespace bot_analysis
 
             Console.WriteLine(DateTime.UtcNow.ToUniversalTime());
             
+                ILogger logger = new ConsoleLogger();
+                ITradeApiClient okxApiClient = new OkxApiClient(httpClient, logger);
+                ITradeAnalysisService tradeAnalysisService = 
+                                    new OkxTradeAnalysisService(okxApiClient, AppDataBase.ConnectionStringForDB(), logger);
+                
 
-            ITradeApiClient okxApiClient = new OkxApiClient(httpClient);
-            ITradeAnalysisService tradeAnalysisService = 
-                                    new OkxTradeAnalysisService(okxApiClient, AppDataBase.ConnectionStringForDB());
+            logger.IsEnabled = true;
 
+            //+await tradeAnalysisService.UpdateBotsAsync();   //Обновление информации по ботам
 
-
-            await tradeAnalysisService.UpdateBotsAsync();   //Обновление информации по ботам
-
-            //await tradeAnalysisService.UpdateTradesAsync();//Обновление ручных сделок 
-            //await tradeAnalysisService.UpdateAccountTransfersAsync();//Обновление переводов на счет
+            await tradeAnalysisService.UpdateTradesAsync();//Обновление ручных сделок 
+            //+await tradeAnalysisService.UpdateAccountTransfersAsync();//Обновление переводов на счет
 
             //await tradeAnalysisService.UpdateUniqueTradingPairsAsync();//обновить уникальные торговые пары
             //await tradeAnalysisService.UpdateUniqueCoinsAsync();//обновить уникальные монеты

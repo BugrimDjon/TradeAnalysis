@@ -9,7 +9,7 @@ namespace bot_analysis.Models
     public static class OkxUrlConst
     {
         //для запроса bills
-        public const string Bills = "/api/v5/account/bills-archive?limit=100";
+        public const string Bill = "/api/v5/account/bills-archive?limit=100";
 
         //Для запроса ордеров ботов
         public static string SubOrdersBot(string algoId)=> 
@@ -22,6 +22,11 @@ namespace bot_analysis.Models
         //Для запроса работающих ботов
         public const string RunningBot =
             "/api/v5/tradingBot/grid/orders-algo-pending?algoOrdType=grid&limit=100";
+
+        //Для запроса ручных сделок на споте
+        public const string FillHistorySpot =
+            "/api/v5/trade/fills-history?instType=SPOT&limit=100";
+
 
 
     }

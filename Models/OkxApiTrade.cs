@@ -1,4 +1,5 @@
-﻿using System;
+﻿using bot_analysis.Interfaces;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -7,7 +8,7 @@ using System.Threading.Tasks;
 namespace bot_analysis.Models
 {
 
-    public class ApiOkxTradeFillsHistory
+    public class ApiOkxTradeFillsHistory : IApiResponseWithData<OkxTradeFillsHistory>
     {
         public string code { get; set; }
         public string msg { get; set; }

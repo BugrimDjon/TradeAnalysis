@@ -20,6 +20,7 @@ using Org.BouncyCastle.Asn1.X509;
 using System.Collections.Generic;
 using System.Reflection.PortableExecutable;
 using System.Collections;
+using System.Xml;
 //using bot_analysis.Services;
 
 namespace bot_analysis.Services
@@ -53,8 +54,9 @@ namespace bot_analysis.Services
             await UpdateStoppedRunningBotsВypassingBifoBugAsync(true);
             //вычитка работающих ботов
             await UpdateStoppedRunningBotsВypassingBifoBugAsync(false);
-            //обновление сделок по остановленным бртам
+            //обновление сделок по остановленным ботам
             await UpdateOrdBotsВypassingBifoBug(true);
+            //обновление сделок по работающим ботам
             await UpdateOrdBotsВypassingBifoBug(false);
 
 
@@ -398,12 +400,6 @@ namespace bot_analysis.Services
                 counter++;
             }
             while (true);
-
-
-
-
-
-
         }
 
 
@@ -561,66 +557,89 @@ namespace bot_analysis.Services
         /// <returns> нет возвращаемых параметров </returns>
         public async Task UpdateAccountTransfersAsync()
         {
+
+            await UpdateAccountTransfersВypassingBifoBugAsync();
+
+
+        }
+
+        /// <summary>
+        /// Метод для переводов с/на аккаунт
+        /// </summary>
+        /// <returns> нет возвращаемых параметров </returns>
+
+        private async Task UpdateAccountTransfersВypassingBifoBugAsync()
+        {
             int len = 0;
             int counter = 0;
             string pointRead = "";
-            bool firstFill = false;
+            bool startedOver = false;
 
-            IEnumerable<OkxBill> trades;
+            IEnumerable<OkxBill> pageData;
 
-            /*var mySqlDataBase = new MySqlConnection(AppDataBase.ConnectionStringForDB());
-            IWorkWithDataBase okxWorkWithDataBase = new OkxWorkWithDataBase(mySqlDataBase);*/
+            //нахотим точку отсчета с которой производить считывание
+            /// находит в таблице `gridbots` billid такой сделки, которая состоялась
+            /// на 20 позиций раньше чем  самая новая
 
-
-            pointRead = await _dataBase.SearchPointToReadNewDataForAccountTransfers();
-
-            //lastTrade = "";
-
+            const string query = @"
+                                    SELECT billid
+                                    FROM bills_table
+                                    ORDER BY fillTime DESC
+                                    LIMIT 1 OFFSET 21;";
+            pointRead = await _dataBase.ExecuteSqlQueryReturnParamString(query);
             do
             {
-                //ограничение скорости вызова запроса 5 запросов в 2 секунды
-                await RateLimiter.EnforceRateLimit(2);
+                //ограничение скорости вызова запроса 5 запросов в 1 секунды
+                await RateLimiter.EnforceRateLimit(5);
 
-                if ((counter == 0) && string.IsNullOrEmpty(pointRead))
+                if (string.IsNullOrEmpty(pointRead) && counter == 0)
                 {
-                    //если выполнились условия то будем считать что таблица пуста
-                    // будем вычитывать все данные от новых к старым
-                    trades = await _apiClient.GetTransfersStateAsync();
-                    firstFill = true; //учитывает направление считывания от новых к старым
+                    //если выполнились условия то это первый запрос
+                    pageData = await _apiClient.GetApiDataAsync<ApiOkxBill, OkxBill>
+                                (OkxUrlConst.Bill);
+                    startedOver = true;
                 }
                 else
                 {
-                    if (firstFill)
+                    if (startedOver)
                         //считываем данные от новых к старым
-                        trades = await _apiClient.GetTransfersStateAsync(PaginationDirection.After, pointRead.ToString());
+                        pageData = await _apiClient.GetApiDataAsync<ApiOkxBill, OkxBill>
+                                (OkxUrlConst.Bill,
+                                PaginationDirection.After, pointRead);
                     else
-                        //считываем данные от старых к новым
-                        trades = await _apiClient.GetTransfersStateAsync(PaginationDirection.Before, pointRead.ToString());
-                }
-                len += trades.Count();
-
-                if (trades.Count() == 0)
-                {
-                    Console.WriteLine("Считано " + len + " сделок");
-                    return;
+                        //считываем данные от станых к новым
+                        pageData = await _apiClient.GetApiDataAsync<ApiOkxBill, OkxBill>
+                                (OkxUrlConst.Bill,
+                                PaginationDirection.Before, pointRead);
                 }
 
-                await _dataBase.SavePageAccountTransfersToDataBase(trades);
+                //сохраняем полученные данные в БД
+                await _dataBase.SavePageAccountTransfersToDataBase(pageData);
+                //достигнут конечный результат
 
-                Console.WriteLine($"Получено сделок: {len}");
-
-                pointRead = trades.LastOrDefault()?.BillId ?? "";
-
-
-                if (len < 100)
+                if (pageData.Count() < 100)
                 {
-                    Console.WriteLine("Считано " + len + " сделок");
+                    len += pageData.Count();
+                    _logger.Info("Закончили запрос транзакциям аккаунта. " +
+                        "      Обработано " + len  + " записей");
                     break;
                 }
+
+                len += pageData.Count();
+                if (startedOver)
+                    pointRead = pageData.LastOrDefault()?.BillId ?? "";
+                else
+                    pointRead = pageData.FirstOrDefault()?.BillId ?? "";
+                _logger.Info("Обработано " + len + " записей");
                 counter++;
             }
             while (true);
         }
+
+
+
+
+
 
 
         /// <summary>
@@ -629,74 +648,155 @@ namespace bot_analysis.Services
         /// <returns> нет возвращаемых параметров </returns>
         public async Task UpdateTradesAsync()
         {
+
+            await UpdateTradesВypassingBifoBugAsync();
+
+            //await UpdateTradesВypassingBifoBugAsync();
+
+            /* int len = 0;
+             int counter = 0;
+             string lastTrade = "";
+             bool firstFill = false;
+
+             IEnumerable<OkxTradeFillsHistory> trades;
+
+             *//*var mySqlDataBase = new MySqlConnection(AppDataBase.ConnectionStringForDB());
+             IWorkWithDataBase okxWorkWithDataBase = new OkxWorkWithDataBase(mySqlDataBase);*//*
+
+             //вычисляем последнюю сделку
+             lastTrade = await _dataBase.SearcPointToReadNewDataForFillsHistory();
+             //lastTrade = "";
+
+
+             do
+             {
+                 //ограничение скорости вызова запроса 20 запросов в секунду
+                 await RateLimiter.EnforceRateLimit(20);
+
+                 //запрос ручных сделок
+                 if ((counter == 0) && (lastTrade == ""))
+                 {
+                     //если выполнились условия то будем считать что таблица пуста
+                     // будем вычитывать все данные от новых к старым
+                     trades = await _apiClient.GetTradesAsync();
+                     firstFill = true; //учитывает направление считывания от новых к старым
+                 }
+
+                 else
+                 {
+
+                     if (firstFill)
+                         //считываем данные от новых к старым
+                         trades = await _apiClient.GetTradesAsync(PaginationDirection.After, lastTrade);
+                     else
+                         //считываем данные от старых к новым
+                         trades = await _apiClient.GetTradesAsync(PaginationDirection.Before, lastTrade);
+                 }
+
+
+
+
+                 len += trades.Count();
+
+                 if (trades.Count() == 0)
+                 {
+                     Console.WriteLine("Считано " + len + " сделок");
+                     return;
+                 }
+
+                 await _dataBase.SavePageTradeFillsHistoryToDataBase(trades);
+
+                 Console.WriteLine($"Получено сделок: {len}");
+
+                 lastTrade = trades.LastOrDefault()?.billId ?? "";
+
+                 if (len < 100)
+                 {
+                     Console.WriteLine("Считано " + len + " сделок");
+                     break;
+                 }
+                 counter++;
+             }
+             while (true);*/
+        }
+
+        //*************************ПРОСМОТРЕТЬ НА ПРЕДМЕТ ПЕРЕДЕЛКИ НА ОБНОВЛЕНИЕ РУЧНЫЗ СДЕЛОК
+
+        /// <summary>
+        /// Метод для переводов с/на аккаунт
+        /// </summary>
+        /// <returns> нет возвращаемых параметров </returns>
+
+        private async Task UpdateTradesВypassingBifoBugAsync()
+        {
             int len = 0;
             int counter = 0;
-            string lastTrade = "";
-            bool firstFill = false;
+            string pointRead = "";
+            bool startedOver = false;
+            IEnumerable<OkxTradeFillsHistory> pageData;
 
-            IEnumerable<OkxTradeFillsHistory> trades;
+            //нахотим точку отсчета с которой производить считывание
+            /// находит в таблице `gridbots` billid такой сделки, которая состоялась
+            /// на 20 позиций раньше чем  самая новая
 
-            /*var mySqlDataBase = new MySqlConnection(AppDataBase.ConnectionStringForDB());
-            IWorkWithDataBase okxWorkWithDataBase = new OkxWorkWithDataBase(mySqlDataBase);*/
-
-            //вычисляем последнюю сделку
-            lastTrade = await _dataBase.SearcPointToReadNewDataForFillsHistory();
-            //lastTrade = "";
-
-
+            const string query = @"
+                                    SELECT billid
+                                    FROM tradefills
+                                    ORDER BY fillTime DESC
+                                    LIMIT 1 OFFSET 20;";
+            pointRead = await _dataBase.ExecuteSqlQueryReturnParamString(query);
+            
             do
             {
-                //ограничение скорости вызова запроса 20 запросов в секунду
-                await RateLimiter.EnforceRateLimit(20);
+                //ограничение скорости вызова запроса 5 запросов в 1 секунды
+                await RateLimiter.EnforceRateLimit(5);
 
-                //запрос ручных сделок
-                if ((counter == 0) && (lastTrade == ""))
+                if (string.IsNullOrEmpty(pointRead) && counter == 0)
                 {
-                    //если выполнились условия то будем считать что таблица пуста
-                    // будем вычитывать все данные от новых к старым
-                    trades = await _apiClient.GetTradesAsync();
-                    firstFill = true; //учитывает направление считывания от новых к старым
+                    //если выполнились условия то это первый запрос
+                    pageData = await _apiClient.GetApiDataAsync<ApiOkxTradeFillsHistory, OkxTradeFillsHistory>
+                                (OkxUrlConst.FillHistorySpot);
+                    startedOver = true;
                 }
-
                 else
                 {
-
-                    if (firstFill)
+                    if (startedOver)
                         //считываем данные от новых к старым
-                        trades = await _apiClient.GetTradesAsync(PaginationDirection.After, lastTrade);
+                        pageData = await _apiClient.GetApiDataAsync<ApiOkxTradeFillsHistory, OkxTradeFillsHistory>
+                                (OkxUrlConst.FillHistorySpot,
+                                PaginationDirection.After, pointRead);
                     else
-                        //считываем данные от старых к новым
-                        trades = await _apiClient.GetTradesAsync(PaginationDirection.Before, lastTrade);
+                        //считываем данные от станых к новым
+                        pageData = await _apiClient.GetApiDataAsync<ApiOkxTradeFillsHistory, OkxTradeFillsHistory>
+                                (OkxUrlConst.FillHistorySpot,
+                                PaginationDirection.Before, pointRead);
                 }
 
+                //сохраняем полученные данные в БД
+                await _dataBase.SavePageTradeFillsHistoryToDataBase(pageData);
+                //достигнут конечный результат
 
-
-
-                len += trades.Count();
-
-                if (trades.Count() == 0)
+                if (pageData.Count() < 100)
                 {
-                    Console.WriteLine("Считано " + len + " сделок");
-                    return;
-                }
-
-                await _dataBase.SavePageTradeFillsHistoryToDataBase(trades);
-
-                Console.WriteLine($"Получено сделок: {len}");
-
-                lastTrade = trades.LastOrDefault()?.billId ?? "";
-
-                if (len < 100)
-                {
-                    Console.WriteLine("Считано " + len + " сделок");
+                    len += pageData.Count();
+                    _logger.Info("Закончили запрос транзакциям аккаунта. " +
+                        "      Обработано " + len + " записей");
                     break;
                 }
+
+                len += pageData.Count();
+                if (startedOver)
+                    pointRead = pageData.LastOrDefault()?.billId ?? "";
+                else
+                    pointRead = pageData.FirstOrDefault()?.billId ?? "";
+                _logger.Info("Обработано " + len + " записей");
                 counter++;
             }
             while (true);
         }
-
-
-
     }
+
+
+
+    
 }

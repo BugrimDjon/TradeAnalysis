@@ -48,8 +48,7 @@ namespace bot_analysis.Services
 
             // Получаем одну страницу JSON ответа по сделкам
             string responseJson = await GetPageJsonAsync(OkxUrl, afterBefore, pointRead);
-            _logger.Debug(responseJson);
-            //Console.WriteLine(responseJson);
+            //_logger.Debug(responseJson);
             if (string.IsNullOrEmpty(responseJson))
             {
                 Console.WriteLine("Не удалось получить данные.");
@@ -197,7 +196,7 @@ namespace bot_analysis.Services
 
             // Получаем одну страницу JSON ответа по сделкам
             string transactionsSpotJson = await GetTradeFillHistorySpotOnePageJson(afterBefore, billId);
-
+            _logger.Debug(transactionsSpotJson);
             if (string.IsNullOrEmpty(transactionsSpotJson))
             {
                 Console.WriteLine("Не удалось получить данные.");
@@ -283,7 +282,7 @@ namespace bot_analysis.Services
         private async Task<string> GetTradeFillHistorySpotOnePageJson(PaginationDirection? afterBefore = null, string? billId = null)
         {
             string urlPath;
-
+            
             if (afterBefore == null && billId == null)
             {
                 urlPath = "/api/v5/trade/fills-history?instType=SPOT&limit=100";
@@ -294,10 +293,10 @@ namespace bot_analysis.Services
                 switch (afterBefore)
                 {
                     case PaginationDirection.After:
-                        urlPath = $"/api/v5/trade/fills-history?instType=SPOT&limit=100&after={billId}";
+                        urlPath = $"/api/v5/trade/fills-history?instType=SPOT&limit=10&after={billId}";
                         break;
                     case PaginationDirection.Before:
-                        urlPath = $"/api/v5/trade/fills-history?instType=SPOT&limit=100&before={billId}";
+                        urlPath = $"/api/v5/trade/fills-history?instType=SPOT&limit=10&before={billId}";
                         break;
                     default:
                         throw new ArgumentException("Invalid direction.");
@@ -384,10 +383,10 @@ namespace bot_analysis.Services
                     switch (afterBefore)
                     {
                         case PaginationDirection.After:
-                            urlPath = $"/api/v5/account/bills-archive?after={billId}";
+                            urlPath = $"/api/v5/account/bills-archive?limit=5&after={billId}";
                             break;
                         case PaginationDirection.Before:
-                            urlPath = $"/api/v5/account/bills-archive?before={billId}";
+                            urlPath = $"/api/v5/account/bills-archive?limit=5&before={billId}";
                             break;
                         default:
                             throw new ArgumentException("Invalid direction.");
@@ -401,7 +400,7 @@ namespace bot_analysis.Services
                 }
 
             }
-
+            _logger.Debug(urlPath);
             return (await GetJsonAsyncByUrlPath(urlPath));
 
             //File.WriteAllText("C:\\Users\\Djon\\source\\repos\\bot_analysis\\для теста\\123.json", urlPath);
@@ -416,13 +415,16 @@ namespace bot_analysis.Services
         /// <returns> возвращает распарсеный JSON в виде списка List<Bill></returns>
         public async Task<IEnumerable<OkxBill>> GetTransfersStateAsync(PaginationDirection? afterBefore = null, string? billId = null)
         {
+            string dataJson;
+
+
 
 
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
             // Получаем одну страницу JSON ответа
-            string dataJson = await GetTransfersStateAsyncOnePageJson(afterBefore, billId);
-
+            dataJson = await GetTransfersStateAsyncOnePageJson(afterBefore, billId);
+            _logger.Debug(dataJson);    
             if (string.IsNullOrEmpty(dataJson))
             {
                 Console.WriteLine("Не удалось получить данные.");
@@ -430,7 +432,7 @@ namespace bot_analysis.Services
             }
 
             // Десериализация ответа в объект ApiTrade
-            var result = JsonSerializer.Deserialize<ApiBill>(dataJson, options);
+            var result = JsonSerializer.Deserialize<ApiOkxBill>(dataJson, options);
 
             // Возвращаем список сделок, если он существует, иначе пустой список
             return result?.data ?? new List<OkxBill>();
