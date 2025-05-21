@@ -48,6 +48,7 @@ namespace bot_analysis.Services
 
             // Получаем одну страницу JSON ответа по сделкам
             string responseJson = await GetPageJsonAsync(OkxUrl, afterBefore, pointRead);
+            _logger.Debug(responseJson);
             //Console.WriteLine(responseJson);
             if (string.IsNullOrEmpty(responseJson))
             {
@@ -141,7 +142,7 @@ namespace bot_analysis.Services
                 urlPath += param;
             }
 
-           // Console.WriteLine($"Запрос URL: {urlPath}");
+           _logger.Debug($"Запрос URL: {urlPath}");
             return await GetJsonAsyncByUrlPath(urlPath);
         }
 
@@ -169,7 +170,7 @@ namespace bot_analysis.Services
                 return new List<OkxBot>(); // Возвращаем пустой список, если нет данных
             }
 
-            Console.WriteLine(botStoppingJson);
+            _logger.Debug(botStoppingJson);
             // Десериализация ответа в объект ApiTrade
             var result = JsonSerializer.Deserialize<ApiOkxBot>(botStoppingJson, options);
 

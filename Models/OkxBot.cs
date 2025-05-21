@@ -1,4 +1,5 @@
-﻿using System;
+﻿using bot_analysis.Interfaces;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -7,7 +8,7 @@ using System.Threading.Tasks;
 namespace bot_analysis.Models
 {
     // Главный ответ от API OKX (всегда содержит код, сообщение и данные)
-    public class ApiOkxBot
+    public class ApiOkxBot: IApiResponseWithData<OkxBot>
     {
         public string code { get; set; } // Код ответа от API, "0" — успешно
         public string msg { get; set; }  // Сообщение от API (обычно пустое при успешном ответе)

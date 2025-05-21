@@ -19,6 +19,7 @@ using System.Net;
 using Org.BouncyCastle.Asn1.X509;
 using System.Collections.Generic;
 using System.Reflection.PortableExecutable;
+using System.Collections;
 //using bot_analysis.Services;
 
 namespace bot_analysis.Services
@@ -30,62 +31,105 @@ namespace bot_analysis.Services
     {
         private readonly ITradeApiClient _apiClient;
         private readonly IWorkWithDataBase _dataBase;
+        private readonly ILogger _logger;
 
         //конструктор класса
-        public OkxTradeAnalysisService(ITradeApiClient apiClient, string config)
+        public OkxTradeAnalysisService(ITradeApiClient apiClient, string config, ILogger logger)
         {
             _apiClient = apiClient;
             // Создаем подключение к БД из строки подключения
             var mySqlConnection = new MySqlConnection(config);
             _dataBase = new OkxWorkWithDataBase(mySqlConnection);
+            _logger = logger;
         }
 
 
 
         public async Task UpdateBotsAsync()
         {
-            /*      //вычитка ботов звкончивших работу
-                  await UpdateStoppedRunningBotsAsync(true);
-                  //вычитка работающих ботов
-                  await UpdateStoppedRunningBotsAsync(false);*/
+            _logger.Info("Начало");
+
+            //вычитка ботов звкончивших работу
+            await UpdateStoppedRunningBotsВypassingBifoBugAsync(true);
+            //вычитка работающих ботов
+            await UpdateStoppedRunningBotsВypassingBifoBugAsync(false);
             //обновление сделок по остановленным бртам
-            await UpdateOrdStoppedBotsВypassingBifoBug();
+            await UpdateOrdBotsВypassingBifoBug(true);
+            await UpdateOrdBotsВypassingBifoBug(false);
+
+
         }
-        private async Task UpdateOrdStoppedBotsВypassingBifoBug()
+        private async Task UpdateOrdBotsВypassingBifoBug(bool oldBot)
         {
             int len = 0;
-            int counter = 0;    
+            int counter = 0;
             string pointRead = "";
+            string query;
             bool goalHasBeenAchieved = false;
-
+            string targetPointRead = "";
+            int allLen = 0;
             IEnumerable<OkxBotOrder> pageData;
 
-            do
-            {// найти AlgoId который завершил работу и не обрабатывался
-                string query = @"select AlgoId from gridbots
-                            where state='stopped' and IsProcessed=0
-                            order by ctime 	asc
-                            limit 1;";
-                string algoId = await _dataBase.ExecuteSqlQueryReturnParamString(query);
 
-                //если algoId пустой, то нет необработанных ботов, выходим их цикла
-                if (string.IsNullOrEmpty(algoId))
-                    break;
+            /*                // найти AlgoId который завершил работу и не обрабатывался
+                            string query = @"select AlgoId from gridbots
+                                        where state='stopped' and IsProcessed=0
+                                        order by ctime 	asc
+                                        limit 1;";
+                            string algoId = await _dataBase.ExecuteSqlQueryReturnParamString(query);*/
 
 
 
-                //найти точку с которой надо производить вычитку.
-                //эта точеа имеет время срабатывания на 20 позиций раньше
-                //для исключения некоректных данных при последнем считывании
-                //то есть перезапишет данные по последним 20 сделкам и будет писать новые
+            //Еслм oldBot= true, то алгоритм для бота закончившего работу
+            if (oldBot)
+            {
 
-                query = $@"select ordId from bot_orders
-                            where algoId = {algoId}
-                            ORDER BY cTime DESC
-                            LIMIT 1 offset 20;";
-                var targetPointRead = await _dataBase.ExecuteSqlQueryReturnParamString(query);
+                //подготовить запрос для переченя ботов, которые остановленны и
+                //не обработаны (переписать все сделки) или не верефицированы
+                //верефицированы - повторная обработка на раньше чем через 20 минут после остановки
+                query = @"select AlgoId from gridbots
+                            where state='stopped' and (IsProcessed=0 or IsVerified=0)
+                            order by ctime 	asc;";
+            }
+            else
+            {
+                //подготовить запрос для работающих ботов ботов
+                query = @"select AlgoId from gridbots
+                            where state='running'
+                            order by ctime 	asc;";
+            }
 
-                Console.Write("Производим обработку данных бота AlgoId = " + algoId + "       ");
+            //получить перечень ботов согластно запроса
+            var data = await _dataBase.ExecuteSqlQueryReturnParamListString(query);
+
+
+            foreach (
+                var algoId in data)
+            {
+
+
+                counter = 0;
+                len = 0;
+
+                _logger.Info("Производим обработку данных бота AlgoId = " + algoId);
+
+
+                if (!oldBot)
+                {   //Если это работающий бот
+                    //найти ID сделки с которой надо производить вычитку.
+                    //эта ID сделка имеет время обновления на 20 позиций раньше чем самая новая
+                    //для исключения некоректных данных при последнем считывании
+                    //то есть перезапишет данные по последним 20 сделкам и будет писать новые
+
+                    query = $@"select ordId from bot_orders
+                        where algoId = {algoId}
+                        ORDER BY cTime DESC
+                        LIMIT 1 offset 20;";
+                    targetPointRead = await _dataBase.ExecuteSqlQueryReturnParamString(query);
+                }
+
+
+
 
                 do
                 {
@@ -126,7 +170,9 @@ namespace bot_analysis.Services
 
                     if (pageData.Count() < 100 || goalHasBeenAchieved)
                     {
-                        Console.WriteLine("Считано " + len + " записей");
+                        _logger.Info("Закончили обработку данных бота AlgoId = " + algoId +
+                            "      Считано " + len + " записей");
+
                         break;
                     }
 
@@ -156,12 +202,11 @@ namespace bot_analysis.Services
                 //установить статус бота в БД "обработан"
                 query = "UPDATE gridbots SET IsProcessed = true WHERE AlgoId =" + algoId;
                 await _dataBase.ExecuteSQLQueryWithoutReturningParameters(query);
-            }while(true);
 
+                allLen += len;
+            }
 
-
-
-
+            Console.WriteLine("Общее кол во записей - " + allLen);
 
         }
 
@@ -265,68 +310,94 @@ namespace bot_analysis.Services
 
         }
 
-        private async Task UpdateStoppedRunningBotsAsync(bool stoppedBot)
+        private async Task UpdateStoppedRunningBotsВypassingBifoBugAsync(bool stoppedBot)
         {
 
             int len = 0;
             int counter = 0;
             string pointRead = "";
-            bool firstFill = false;
+            string targetPointRead = "";
+            bool goalHasBeenAchieved = false;
 
-            IEnumerable<OkxBot> bots;
+            IEnumerable<OkxBot> pageData;
 
             //нахотим точку отсчета с которой производить считывание
             if (stoppedBot)
-
-                pointRead = await _dataBase.SearchPointToReadNewDataForStoppedBot();
+            {
+                /// находит в таблице `gridbots` AlgoId такого бота, который не работает и имеет время
+                /// создания меньше или равное времени создания самого раннего работающего бота
+                const string query = @"
+                                   SELECT AlgoId
+                                    FROM gridbots
+                                    WHERE CTime <= (
+                                        SELECT MIN(CTime)
+                                        FROM gridbots
+                                        WHERE State = 'running'
+                                    ) and State = 'stopped'
+                                    ORDER BY CTime DESC
+                                    LIMIT 1;";
+                targetPointRead = await _dataBase.ExecuteSqlQueryReturnParamString(query);
+                //pointRead = await _dataBase.SearchPointToReadNewDataForStoppedBot();
+            }
             else
                 pointRead = "";
 
+            //targetPointRead = "2408844406590803968";
+
+
             do
             {
+
                 //ограничение скорости вызова запроса 10 запросов в 1 секунды
                 await RateLimiter.EnforceRateLimit(10);
 
-                if ((counter == 0) && string.IsNullOrEmpty(pointRead))
+                if (counter == 0)
                 {
-                    //если выполнились условия то будем считать что таблица пуста
-                    // будем вычитывать все данные от новых к старым
-                    bots = await _apiClient.GetInfoBotsAsync(stoppedBot);
-                    firstFill = true; //учитывает направление считывания от новых к старым
+                    //если выполнились условия то это первый запрос
+                    if (stoppedBot)
+                        pageData = await _apiClient.GetApiDataAsync<ApiOkxBot, OkxBot>(
+                                    OkxUrlConst.StoppedBot);
+                    else
+                        pageData = await _apiClient.GetApiDataAsync<ApiOkxBot, OkxBot>(
+                                OkxUrlConst.RunningBot);
                 }
                 else
                 {
-                    if (firstFill)
-                        //считываем данные от новых к старым
-                        bots = await _apiClient.GetInfoBotsAsync(stoppedBot, PaginationDirection.After, pointRead.ToString());
-                    else
-                        //считываем данные от старых к новым
-                        bots = await _apiClient.GetInfoBotsAsync(stoppedBot, PaginationDirection.Before, pointRead.ToString());
-                }
-                len += bots.Count();
+                    //считываем данные от новых к старым
+                    pageData = await _apiClient.GetApiDataAsync<ApiOkxBot, OkxBot>(
+                            OkxUrlConst.RunningBot,
+                            PaginationDirection.After, pointRead);
 
-                if (bots.Count() == 0)
-                {
-                    Console.WriteLine("Считано " + len + " ботов");
-                    return;
                 }
 
-                await _dataBase.SavePageStoppedBotToDataBase(bots);
+                //сохраняем полученные данные в БД
+                await _dataBase.SavePageBotToDataBase(pageData);
 
-                //Console.WriteLine($"Получено: {len} ботов");
-
-                pointRead = bots.LastOrDefault()?.AlgoId ?? "";
-
-
-                if (len < 100)
+                //достигнут конечный результат
+                foreach (var entryPageData in pageData)
                 {
-                    Console.WriteLine("Считано " + len + " ботов");
+                    len++;
+                    if (entryPageData.AlgoId == targetPointRead)
+                    {
+                        goalHasBeenAchieved = true;
+                        break;
+                    }
+
+                }
+
+                if (pageData.Count() < 100 || goalHasBeenAchieved)
+                {
+                    _logger.Info("Закончили запрос по ботам закончивших работу. " +
+                        "      Обработано " + len + " записей");
+
                     break;
                 }
+
+                pointRead = pageData.LastOrDefault()?.AlgoId ?? "";
+
                 counter++;
             }
             while (true);
-
 
 
 

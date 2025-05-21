@@ -12,6 +12,7 @@ using System.Reflection.Metadata.Ecma335;
 using Mysqlx.Crud;
 using Mysqlx.Prepare;
 using System.Diagnostics;
+using System.Data.Common;
 
 namespace bot_analysis.Services
 {
@@ -32,7 +33,7 @@ namespace bot_analysis.Services
 
 
 
-        public async Task SavePageStoppedBotToDataBase(IEnumerable<OkxBot> bots)
+        public async Task SavePageBotToDataBase(IEnumerable<OkxBot> bots)
         {
             string query = @"
         INSERT INTO gridbots (
@@ -400,10 +401,9 @@ feeRate = VALUES(feeRate);
         }
 
 
-        /// <summary>
+        /*/// <summary>
         /// находит в таблице `gridbots` AlgoId такого бота, который не работает и имеет время
         /// создания меньше или равное времени создания самого раннего работающего бота
-        /// загруженности системы) и записи новых
         /// </summary>
         /// <returns> значение AlgoId в строковом представлении </returns>
         public async  Task<string> SearchPointToReadNewDataForStoppedBot()
@@ -424,7 +424,7 @@ feeRate = VALUES(feeRate);
             return (result);
 
 
-        }
+        }*/
 
         /// <summary>
         /// находит в таблице `bills_table` billid на 50 строк созданый ранее чем последний
@@ -468,10 +468,38 @@ feeRate = VALUES(feeRate);
             using var cmd = new MySqlCommand(query, _mySqlConnection);
 
             var result = await cmd.ExecuteScalarAsync();
-
+            
             return (Convert.ToString(result));
 
         }
+
+
+        /// <summary>
+        /// Принимает SQL запрос как параметр и возвращает ответ в виде списока
+        /// </summary>
+        /// <param name="query"> string SQL запрос</param>
+        /// <returns> Task<IEnumerable<string>> ответ на запрос </returns>
+        public async Task<IEnumerable<string>> ExecuteSqlQueryReturnParamListString(string query)
+        {
+            var result = new List<string>();
+            
+            if (_mySqlConnection.State != System.Data.ConnectionState.Open)
+                await _mySqlConnection.OpenAsync();
+
+            using var cmd = new MySqlCommand(query, _mySqlConnection);
+
+            using var reader = await cmd.ExecuteReaderAsync();
+
+            while (await reader.ReadAsync())
+            {
+                result.Add(reader.GetString(0)); // 0 — индекс столбца
+            }
+
+            return result;
+        }
+
+
+
 
 
 

@@ -14,8 +14,14 @@ namespace bot_analysis.Models
         //Для запроса ордеров ботов
         public static string SubOrdersBot(string algoId)=> 
             $"/api/v5/tradingBot/grid/sub-orders?limit=100&algoOrdType=grid&type=filled&algoId={algoId}";
-        // частота заппросов SubOrdersBot
-        public static int RequestFrequencySubOrdersBot = 10;
+
+        //Для запроса ботов закончивших работу
+        public const string StoppedBot =
+            "/api/v5/tradingBot/grid/orders-algo-history?algoOrdType=grid&limit=100";
+
+        //Для запроса работающих ботов
+        public const string RunningBot =
+            "/api/v5/tradingBot/grid/orders-algo-pending?algoOrdType=grid&limit=100";
 
 
     }

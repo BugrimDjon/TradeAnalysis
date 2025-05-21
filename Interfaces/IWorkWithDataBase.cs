@@ -13,15 +13,23 @@ namespace bot_analysis.Interfaces
         /// <param name="trades">Список ручных сделок</param>
         Task SavePageTradeFillsHistoryToDataBase(IEnumerable<OkxTradeFillsHistory> trades);
         Task <string> SearcPointToReadNewDataForFillsHistory();
-        Task SavePageStoppedBotToDataBase(IEnumerable<OkxBot> bots); // сохранить данные про остановленных ботов
+        Task SavePageBotToDataBase(IEnumerable<OkxBot> bots); // сохранить данные про остановленных ботов
         Task SavePageAccountTransfersToDataBase(IEnumerable<OkxBill> trades);
         Task<string> SearchPointToReadNewDataForAccountTransfers();
-        Task<string> SearchPointToReadNewDataForStoppedBot();
+        //Task<string> SearchPointToReadNewDataForStoppedBot();
         Task UpdateUniqueTradingPairsInBD();//обновить используемые торговые пары
         Task UpdateUniqueCoinsInBD();//обновить используемые монеты
         Task <IEnumerable<string>> GetUniqueCoinsAsync();//получить перечень уникальных монет
         Task ExecuteSQLQueryWithoutReturningParameters(string query); // выполняет переданный запрос
         Task<string> ExecuteSqlQueryReturnParamString(string query);// возвращает string на переданный запрос
+
+        /// <summary>
+        /// Принимает SQL запрос как параметр и возвращает ответ в виде списока
+        /// </summary>
+        /// <param name="query"> string SQL запрос</param>
+        /// <returns> Task<IEnumerable<string>> ответ на запрос </returns>
+        Task<IEnumerable<string>> ExecuteSqlQueryReturnParamListString(string query);
+
 
         Task SaveOrdStoppedBotsToDB(IEnumerable<OkxBotOrder> BotOrder); //сохраняет данные о сделках ботов
 
