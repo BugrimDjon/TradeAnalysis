@@ -12,7 +12,7 @@ namespace bot_analysis.Models
         public const string Bill = "/api/v5/account/bills-archive?limit=100";
 
         //Для запроса ордеров ботов
-        public static string SubOrdersBot(string algoId)=> 
+        public static string SubOrdersBot(string algoId)=>
             $"/api/v5/tradingBot/grid/sub-orders?limit=100&algoOrdType=grid&type=filled&algoId={algoId}";
 
         //Для запроса ботов закончивших работу
@@ -26,8 +26,5 @@ namespace bot_analysis.Models
         //Для запроса ручных сделок на споте
         public const string FillHistorySpot =
             "/api/v5/trade/fills-history?instType=SPOT&limit=100";
-
-
-
     }
 }

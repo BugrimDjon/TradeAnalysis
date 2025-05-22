@@ -25,17 +25,9 @@ namespace bot_analysis.Services
             _mySqlConnection = mySqlConnection;
         }
 
-
-
-
-
-
-
-
-
         public async Task SavePageBotToDataBase(IEnumerable<OkxBot> bots)
         {
-            string query = @"
+            const string query = @"
         INSERT INTO gridbots (
             AlgoId, AlgoOrdType, InstId, InstType, State, Investment, BaseSz, QuoteSz, GridNum, GridProfit,
             FloatProfit, TotalPnl, PnlRatio, CTime, UTime, StopType, StopResult, CancelType,
@@ -69,8 +61,7 @@ namespace bot_analysis.Services
 
             if (_mySqlConnection.State != System.Data.ConnectionState.Open)
                 await _mySqlConnection.OpenAsync();
-            
-
+         
             foreach (var trade in bots)
             {
                 using var cmd = new MySqlCommand(query, _mySqlConnection);
@@ -101,20 +92,11 @@ namespace bot_analysis.Services
                     decimal.TryParse(trade.MaxPx, out var max) ? max : (object)DBNull.Value);
                 cmd.Parameters.AddWithValue("@MinPx",
                     decimal.TryParse(trade.MinPx, out var min) ? min : (object)DBNull.Value);
-
-
-
                 await cmd.ExecuteNonQueryAsync();
             }
 
             await _mySqlConnection.CloseAsync();
-
-
         }
-
-
-
-
 
         public async Task SavePageAccountTransfersToDataBase(IEnumerable<OkxBill> trades)
         {
@@ -166,9 +148,6 @@ namespace bot_analysis.Services
 
             if (_mySqlConnection.State != System.Data.ConnectionState.Open)
                 await _mySqlConnection.OpenAsync();
-            int counter = 0;
-            long? temp;
-
 
             foreach (var trade in trades)
             {
@@ -498,15 +477,9 @@ feeRate = VALUES(feeRate);
             return result;
         }
 
-
-
-
-
-
         //обновить используемые торговые пары
         public async Task UpdateUniqueTradingPairsInBD()
         {
-            
             const string query = @"INSERT IGNORE INTO `tradingpairs` (OKX)
                                     SELECT DISTINCT InstId
                                     FROM bills_table
@@ -514,7 +487,7 @@ feeRate = VALUES(feeRate);
 
             await ExecuteSQLQueryWithoutReturningParameters(query);
         }
-            
+
         public async Task UpdateUniqueCoinsInBD()
         {
             const string query = @"INSERT IGNORE INTO `coins` (OKX)
@@ -525,19 +498,12 @@ feeRate = VALUES(feeRate);
             await ExecuteSQLQueryWithoutReturningParameters(query);
         }
 
-
-
-
-
-
-
         /// <summary>
         /// находит в таблице ручных сделок billid последней сделки
         /// </summary>
         /// <returns> значение billid в строковом представлении </returns>
         public async Task <string> SearcPointToReadNewDataForFillsHistory()
         {
-            
             const string query = @"
                                     SELECT billid
                                     FROM tradefills
@@ -545,16 +511,8 @@ feeRate = VALUES(feeRate);
                                     LIMIT 1 OFFSET 49;";
 
             var result = await ExecuteSqlQueryReturnParamString(query);
-
-            return (result);
-
+            return result;
         }
-
-
-
-
-
-
 
         public async Task <IEnumerable<string>> GetUniqueCoinsAsync()
         {
@@ -562,8 +520,8 @@ feeRate = VALUES(feeRate);
 
             if (_mySqlConnection.State != System.Data.ConnectionState.Open)
                 await _mySqlConnection.OpenAsync();
-            
-            string query = "SELECT OKX FROM coins";
+
+            const string query = "SELECT OKX FROM coins";
 
             using var cmd = new MySqlCommand(query, _mySqlConnection);
 
@@ -575,13 +533,7 @@ feeRate = VALUES(feeRate);
 
                 result.Add(okxValue);
             }
-
             return result;
         }
-
-        
-
-
     }
-
 }

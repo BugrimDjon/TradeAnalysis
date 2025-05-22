@@ -9,7 +9,6 @@ namespace bot_analysis.Models
 {
     public class OkxReport
     {
-
         public string Coins { get; set; } // Перечень монет
         public string CoinsTransf{ get; set; } // Количество переведенных монет
         //public string BuyCoin { get; set; }     //
@@ -25,11 +24,5 @@ namespace bot_analysis.Models
         public string CurrentValueUsd { get; set; }// Актив монет в USDT
         public string SpentTotalUsd { get; set; }// Затрачено в USDT
         public string FullProfitUsd { get; set; }// Доход с учетом продажи монет по текущему курсу
-
-
-
-
-
     }
-
 }
