@@ -14,5 +14,4 @@ namespace bot_analysis.Interfaces
         void Warning(string message);
         void Error(string message, Exception? ex = null);
     }
-
 }

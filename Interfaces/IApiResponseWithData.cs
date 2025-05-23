@@ -9,7 +9,5 @@ namespace bot_analysis.Interfaces
     public interface IApiResponseWithData<T>
     {
         List<T> data { get; set; }
-        
     }
 }
-    

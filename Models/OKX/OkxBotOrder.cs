@@ -5,9 +5,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace bot_analysis.Models
+namespace bot_analysis.Models.OKX
 {
-    public class ApiOkxBotOrder:IApiResponseWithData<OkxBotOrder>
+    public class ApiOkxBotOrder : IApiResponseWithData<OkxBotOrder>
     {
         public string code { get; set; } // Код ответа от API, "0" — успешно
         public string msg { get; set; }  // Сообщение от API (обычно пустое при успешном ответе)

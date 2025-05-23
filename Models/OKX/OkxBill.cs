@@ -5,9 +5,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace bot_analysis.Models
+namespace bot_analysis.Models.OKX
 {
-
     public class ApiOkxBill : IApiResponseWithData<OkxBill>
     {
         public string code { get; set; }
@@ -112,5 +111,4 @@ namespace bot_analysis.Models
         // Тип счета (1 = перевод, 2 = торговля и т.п.)
         public string Type { get; set; }
     }
-
 }

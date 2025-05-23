@@ -5,7 +5,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using MySql.Data.MySqlClient;
-using bot_analysis.Models;
 using System.Collections;
 using Google.Protobuf.WellKnownTypes;
 using System.Reflection.Metadata.Ecma335;
@@ -13,10 +12,11 @@ using Mysqlx.Crud;
 using Mysqlx.Prepare;
 using System.Diagnostics;
 using System.Data.Common;
+using bot_analysis.Models.OKX;
 
-namespace bot_analysis.Services
+namespace bot_analysis.Services.OKX
 {
-    internal class OkxWorkWithDataBase :IWorkWithDataBase
+    internal class OkxWorkWithDataBase : IWorkWithDataBase
     {
         private readonly MySqlConnection _mySqlConnection;
 
@@ -61,10 +61,9 @@ namespace bot_analysis.Services
 
             if (_mySqlConnection.State != System.Data.ConnectionState.Open)
                 await _mySqlConnection.OpenAsync();
-         
             foreach (var trade in bots)
             {
-                using var cmd = new MySqlCommand(query, _mySqlConnection);
+                await using var cmd = new MySqlCommand(query, _mySqlConnection);
 
                 cmd.Parameters.AddWithValue("@AlgoId", trade.AlgoId);
                 cmd.Parameters.AddWithValue("@AlgoOrdType", trade.AlgoOrdType);
@@ -85,13 +84,13 @@ namespace bot_analysis.Services
                 cmd.Parameters.AddWithValue("@StopResult", trade.StopResult);
                 cmd.Parameters.AddWithValue("@CancelType", trade.CancelType);
                 cmd.Parameters.AddWithValue("@SlTriggerPx",
-                    decimal.TryParse(trade.SlTriggerPx, out var sl) ? sl : (object)DBNull.Value);
+                    decimal.TryParse(trade.SlTriggerPx, out var sl) ? sl : DBNull.Value);
                 cmd.Parameters.AddWithValue("@TpTriggerPx",
-                    decimal.TryParse(trade.TpTriggerPx, out var tp) ? tp : (object)DBNull.Value);
+                    decimal.TryParse(trade.TpTriggerPx, out var tp) ? tp : DBNull.Value);
                 cmd.Parameters.AddWithValue("@MaxPx",
-                    decimal.TryParse(trade.MaxPx, out var max) ? max : (object)DBNull.Value);
+                    decimal.TryParse(trade.MaxPx, out var max) ? max : DBNull.Value);
                 cmd.Parameters.AddWithValue("@MinPx",
-                    decimal.TryParse(trade.MinPx, out var min) ? min : (object)DBNull.Value);
+                    decimal.TryParse(trade.MinPx, out var min) ? min : DBNull.Value);
                 await cmd.ExecuteNonQueryAsync();
             }
 
@@ -151,8 +150,7 @@ namespace bot_analysis.Services
 
             foreach (var trade in trades)
             {
-                using var cmd = new MySqlCommand(query, _mySqlConnection);
-
+                await using var cmd = new MySqlCommand(query, _mySqlConnection);
                 cmd.Parameters.AddWithValue("@bal", ConvertToNullableDecimal(trade.Bal));
                 cmd.Parameters.AddWithValue("@balChg", ConvertToNullableDecimal(trade.BalChg));
                 cmd.Parameters.AddWithValue("@billId", trade.BillId);
@@ -189,16 +187,10 @@ namespace bot_analysis.Services
 
                 //Console.WriteLine("trade.Type = " + trade.Type + "       ConvertToNullableLong(trade.Type) = " + ConvertToNullableLong(trade.Type));
                 cmd.Parameters.AddWithValue("@type", ConvertToNullableLong(trade.Type));
-                
-
-
                 await cmd.ExecuteNonQueryAsync();
             }
-
             await _mySqlConnection.CloseAsync();
-
         }
-
 
         public async Task SaveOrdStoppedBotsToDB(IEnumerable<OkxBotOrder> BotOrder)
         {
@@ -239,19 +231,14 @@ namespace bot_analysis.Services
                 posSide= VALUES( posSide), 
                 lever= VALUES( lever), 
                 ctVal= VALUES( ctVal), 
-                tag= VALUES( tag)
-";
-
+                tag= VALUES( tag)";
 
             if (_mySqlConnection.State != System.Data.ConnectionState.Open)
                 await _mySqlConnection.OpenAsync();
 
-
             foreach (var trade in BotOrder)
             {
-                using var cmd = new MySqlCommand(query, _mySqlConnection);
-
-
+                await using var cmd = new MySqlCommand(query, _mySqlConnection);
                 cmd.Parameters.AddWithValue("@algoId", ConvertToNullableLong(trade.algoId));
                 cmd.Parameters.AddWithValue("@algoClOrdId", trade.algoClOrdId);
                 cmd.Parameters.AddWithValue("@algoOrdType", trade.algoOrdType);
@@ -279,11 +266,7 @@ namespace bot_analysis.Services
                 cmd.Parameters.AddWithValue("@lever", trade.lever);
                 cmd.Parameters.AddWithValue("@ctVal", trade.ctVal);
                 cmd.Parameters.AddWithValue("@tag", trade.tag);
-
-
-
                 await cmd.ExecuteNonQueryAsync();
-
             }
         }
 
@@ -325,14 +308,10 @@ feeRate = VALUES(feeRate);
 
             if (_mySqlConnection.State != System.Data.ConnectionState.Open)
                 await _mySqlConnection.OpenAsync();
-
-            
             foreach (var trade in trades)
             {
-                using var cmd = new MySqlCommand(query, _mySqlConnection);
-
-
-                cmd.Parameters.AddWithValue("@instType", trade.instType);
+                await using var cmd = new MySqlCommand(query, _mySqlConnection);
+                cmd.Parameters.AddWithValue("@instType", trade.InstType);
                 cmd.Parameters.AddWithValue("@instId", trade.instId);
                 cmd.Parameters.AddWithValue("@tradeId", trade.tradeId);
                 cmd.Parameters.AddWithValue("@ordId", trade.ordId);
@@ -357,76 +336,24 @@ feeRate = VALUES(feeRate);
                 cmd.Parameters.AddWithValue("@ts", ConvertToNullableLong(trade.ts));
                 cmd.Parameters.AddWithValue("@fillTime", ConvertToNullableLong(trade.fillTime));
                 cmd.Parameters.AddWithValue("@feeRate", ConvertToNullableDecimal(trade.feeRate));
-
                 await cmd.ExecuteNonQueryAsync();
             }
-
             await _mySqlConnection.CloseAsync();
         }
 
-
-        private decimal? ConvertToNullableDecimal(string value)
+        private static decimal? ConvertToNullableDecimal(string value)
         {
             //Console.WriteLine(value);
             return decimal.TryParse(value, System.Globalization.NumberStyles.Any,
     System.Globalization.CultureInfo.InvariantCulture, out var result) ? result : null;
         }
-        
-        private long? ConvertToNullableLong(string value)
+
+        private static long? ConvertToNullableLong(string value)
         {
-           // Console.WriteLine(value);
+            // Console.WriteLine(value);
             return long.TryParse(value, System.Globalization.NumberStyles.Any,
     System.Globalization.CultureInfo.InvariantCulture, out var result) ? result : null;
         }
-
-
-        /*/// <summary>
-        /// находит в таблице `gridbots` AlgoId такого бота, который не работает и имеет время
-        /// создания меньше или равное времени создания самого раннего работающего бота
-        /// </summary>
-        /// <returns> значение AlgoId в строковом представлении </returns>
-        public async  Task<string> SearchPointToReadNewDataForStoppedBot()
-        {
-            const string query = @"
-                                   SELECT AlgoId
-                                    FROM gridbots
-                                    WHERE CTime <= (
-                                        SELECT MIN(CTime)
-                                        FROM gridbots
-                                        WHERE State = 'running'
-                                    ) and State = 'stopped'
-                                    ORDER BY CTime DESC
-                                    LIMIT 1;";
-
-            var result = await ExecuteSqlQueryReturnParamString(query);
-
-            return (result);
-
-
-        }*/
-
-        /// <summary>
-        /// находит в таблице `bills_table` billid на 50 строк созданый ранее чем последний
-        /// для перезаписи последних 50 (исключает не полное отображение данных из за
-        /// загруженности системы) и записи новых
-        /// </summary>
-        /// <returns> значение billid в строковом представлении </returns>
-
-        public async Task<string> SearchPointToReadNewDataForAccountTransfers()
-        {
-            
-            const string query = @"
-                                    SELECT billid
-                                    FROM `bills_table`
-                                    ORDER BY ts DESC
-                                    LIMIT 1 OFFSET 49;";
-
-            var result = await ExecuteSqlQueryReturnParamString(query);
-
-            return (result);
-
-        }
-
 
         public async Task ExecuteSQLQueryWithoutReturningParameters(string query)
         {
@@ -434,24 +361,19 @@ feeRate = VALUES(feeRate);
                 await _mySqlConnection.OpenAsync();
             // Выполнение запроса
 
-            using var cmd = new MySqlCommand(query, _mySqlConnection);
+            await using var cmd = new MySqlCommand(query, _mySqlConnection);
             await cmd.ExecuteNonQueryAsync(); // ← важно!
-
         }
-        
+
         public async Task<string> ExecuteSqlQueryReturnParamString(string query)
         {
             if (_mySqlConnection.State != System.Data.ConnectionState.Open)
                 await _mySqlConnection.OpenAsync();
 
-            using var cmd = new MySqlCommand(query, _mySqlConnection);
-
+            await using var cmd = new MySqlCommand(query, _mySqlConnection);
             var result = await cmd.ExecuteScalarAsync();
-            
-            return (Convert.ToString(result));
-
+            return Convert.ToString(result);
         }
-
 
         /// <summary>
         /// Принимает SQL запрос как параметр и возвращает ответ в виде списока
@@ -461,19 +383,16 @@ feeRate = VALUES(feeRate);
         public async Task<IEnumerable<string>> ExecuteSqlQueryReturnParamListString(string query)
         {
             var result = new List<string>();
-            
+
             if (_mySqlConnection.State != System.Data.ConnectionState.Open)
                 await _mySqlConnection.OpenAsync();
 
-            using var cmd = new MySqlCommand(query, _mySqlConnection);
-
-            using var reader = await cmd.ExecuteReaderAsync();
-
+            await using var cmd = new MySqlCommand(query, _mySqlConnection);
+            await using var reader = await cmd.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
                 result.Add(reader.GetString(0)); // 0 — индекс столбца
             }
-
             return result;
         }
 
@@ -498,23 +417,7 @@ feeRate = VALUES(feeRate);
             await ExecuteSQLQueryWithoutReturningParameters(query);
         }
 
-        /// <summary>
-        /// находит в таблице ручных сделок billid последней сделки
-        /// </summary>
-        /// <returns> значение billid в строковом представлении </returns>
-        public async Task <string> SearcPointToReadNewDataForFillsHistory()
-        {
-            const string query = @"
-                                    SELECT billid
-                                    FROM tradefills
-                                    ORDER BY fillTime DESC
-                                    LIMIT 1 OFFSET 49;";
-
-            var result = await ExecuteSqlQueryReturnParamString(query);
-            return result;
-        }
-
-        public async Task <IEnumerable<string>> GetUniqueCoinsAsync()
+        public async Task<IEnumerable<string>> GetUniqueCoinsAsync()
         {
             var result = new List<string>();
 
@@ -523,9 +426,9 @@ feeRate = VALUES(feeRate);
 
             const string query = "SELECT OKX FROM coins";
 
-            using var cmd = new MySqlCommand(query, _mySqlConnection);
+            await using var cmd = new MySqlCommand(query, _mySqlConnection);
 
-            using var reader = await cmd.ExecuteReaderAsync();
+            await using var reader = await cmd.ExecuteReaderAsync();
 
             while (await reader.ReadAsync())
             {

@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace bot_analysis.Config
+namespace bot_analysis.Config.OKX
 {
     public static class AppDataApiOKX
     {
@@ -18,7 +18,6 @@ namespace bot_analysis.Config
         {
             Env.Load();
             //Console.WriteLine("Loaded DB_SERVER: " + Environment.GetEnvironmentVariable("DB_SERVER"));
-
 
             ApiKey = Environment.GetEnvironmentVariable("DB_APIKEY");
             SecretKey = Environment.GetEnvironmentVariable("DB_SECRETKEY"); // исправлено

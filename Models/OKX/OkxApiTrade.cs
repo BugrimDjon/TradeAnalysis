@@ -1,13 +1,8 @@
 ﻿using bot_analysis.Interfaces;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.Text.Json.Serialization;
 
-namespace bot_analysis.Models
+namespace bot_analysis.Models.OKX
 {
-
     public class ApiOkxTradeFillsHistory : IApiResponseWithData<OkxTradeFillsHistory>
     {
         public string code { get; set; }
@@ -17,7 +12,8 @@ namespace bot_analysis.Models
 
     public class OkxTradeFillsHistory
     {
-        public string instType { get; set; }    //Тип инструмента
+        [JsonPropertyName("instType")]
+        public string InstType { get; set; }    //Тип инструмента
         public string instId { get; set; }      //ID инструмента
         public string tradeId { get; set; }     //ID последней сделки
         public string ordId { get; set; }       //ID ордера
@@ -58,7 +54,5 @@ namespace bot_analysis.Models
         public string ts { get; set; }          //Время генерации данных, формат временной метки Unix в миллисекундах, например, 1597026383085.
         public string fillTime { get; set; }    //Время торговли, которое совпадает с fillTime для канала ордера.
         public string feeRate { get; set; }     //Ставка комиссии. Это поле возвращается только для SPOT и MARGIN
-
     }
-
 }

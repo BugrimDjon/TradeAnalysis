@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace bot_analysis.Models
+namespace bot_analysis.Models.OKX
 {
     public static class OkxUrlConst
     {
@@ -12,7 +12,7 @@ namespace bot_analysis.Models
         public const string Bill = "/api/v5/account/bills-archive?limit=100";
 
         //Для запроса ордеров ботов
-        public static string SubOrdersBot(string algoId)=>
+        public static string SubOrdersBot(string algoId) =>
             $"/api/v5/tradingBot/grid/sub-orders?limit=100&algoOrdType=grid&type=filled&algoId={algoId}";
 
         //Для запроса ботов закончивших работу

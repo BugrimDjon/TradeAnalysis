@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace bot_analysis.Services
+namespace bot_analysis.Services.OKX
 {
-    
+
     public static class RateLimiter
     {
         private static DateTime _lastRequestTime = DateTime.MinValue;

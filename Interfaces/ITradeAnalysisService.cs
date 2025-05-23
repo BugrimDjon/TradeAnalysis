@@ -1,4 +1,4 @@
-﻿using bot_analysis.Models;
+﻿using bot_analysis.Models.OKX;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -10,9 +10,8 @@ using System.Xml;
 
 namespace bot_analysis.Interfaces
 {
-    internal interface ITradeAnalysisService
+    public interface ITradeAnalysisService
     {
-
         Task UpdateBotsAsync();//Обновление информации по ботам
         Task UpdateTradesAsync(); //Обновление ручных сделок 
         Task UpdateAccountTransfersAsync();//Обновить переводы аккаунта
@@ -20,7 +19,5 @@ namespace bot_analysis.Interfaces
         Task UpdateUniqueCoinsAsync();//Обновить уникальные торговые пары
         Task<IEnumerable<OkxReport>> GenerateReport();//Сформировать отчет
         Task GenerateReportAsync(IEnumerable<OkxReport> data);//Сохранить отчет
-        
     }
-
 }

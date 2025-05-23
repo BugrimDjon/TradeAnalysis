@@ -5,12 +5,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace bot_analysis.Models
+namespace bot_analysis.Models.OKX
 {
     public class OkxReport
     {
         public string Coins { get; set; } // Перечень монет
-        public string CoinsTransf{ get; set; } // Количество переведенных монет
+        public string CoinsTransf { get; set; } // Количество переведенных монет
         //public string BuyCoin { get; set; }     //
         public string BuyAmount { get; set; }// Количество купленных монет
         public string BuyTotal { get; set; }// На сумму
