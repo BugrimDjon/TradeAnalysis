@@ -14,7 +14,7 @@ namespace bot_analysis.Interfaces
 
         // универсальный метод для запроса по API
         Task<IEnumerable<TData>> GetApiDataAsync<TResponse, TData>(
-                                        string OkxUrl,
+                                        OkxEndpointInfo endPointData,
                                         PaginationDirection? afterBefore = null,
                                         string? pointRead = null
                                         )

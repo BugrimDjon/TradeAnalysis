@@ -25,13 +25,18 @@ namespace bot_analysis
 
             logger.IsEnabled = true;
 
-            await tradeAnalysisService.UpdateBotsAsync();   //Обновление информации по ботам
+            await tradeAnalysisService.UpdateBalansAcauntAsync();
+            await tradeAnalysisService.UpdateTransferEvaluationsAsync();
+
+
+            //*******************Готово
+            /*await tradeAnalysisService.UpdateBotsAsync();   //Обновление информации по ботам
 
             await tradeAnalysisService.UpdateTradesAsync();//Обновление ручных сделок 
             await tradeAnalysisService.UpdateAccountTransfersAsync();//Обновление переводов на счет
 
             await tradeAnalysisService.UpdateUniqueTradingPairsAsync();//обновить уникальные торговые пары
-            await tradeAnalysisService.UpdateUniqueCoinsAsync();//обновить уникальные монеты
+            await tradeAnalysisService.UpdateUniqueCoinsAsync();//обновить уникальные монеты*/
 
             //сгенерировать и созранить отчет
             await tradeAnalysisService.GenerateReportAsync(await tradeAnalysisService.GenerateReport());

@@ -11,7 +11,6 @@ namespace bot_analysis.Models.OKX
     {
         public string Coins { get; set; } // Перечень монет
         public string CoinsTransf { get; set; } // Количество переведенных монет
-        //public string BuyCoin { get; set; }     //
         public string BuyAmount { get; set; }// Количество купленных монет
         public string BuyTotal { get; set; }// На сумму
         public string BuyAvgPrice { get; set; }// Средняя цена покупки
@@ -24,5 +23,7 @@ namespace bot_analysis.Models.OKX
         public string CurrentValueUsd { get; set; }// Актив монет в USDT
         public string SpentTotalUsd { get; set; }// Затрачено в USDT
         public string FullProfitUsd { get; set; }// Доход с учетом продажи монет по текущему курсу
+        public string BuyAmountBot { get; set; } // Количество купленных монет ботом
+        public string BuyTotalBot { get; set; }// купленных ботом на сумму в USDT
     }
 }

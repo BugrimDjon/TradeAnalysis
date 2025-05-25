@@ -21,19 +21,26 @@ namespace bot_analysis.Services.OKX
             _logger = logger;
         }
 
+        
+
+
+
         /// <summary>
         /// универсальный метод для запроса по API
         /// </summary>
         /// <returns> возвращает распарсеный JSON в виде списка List<TData></returns>
         public async Task<IEnumerable<TData>> GetApiDataAsync<TResponse, TData>
-                                        (string OkxUrl,
+                                        (OkxEndpointInfo endPointData,
                                         PaginationDirection? afterBefore = null,
                                         string? pointRead = null)
             where TResponse : IApiResponseWithData<TData>
 
         {
+            //ограничение скорости вызова запроса 10 запросов в 1 секунды
+            await RateLimiter.EnforceRateLimit(endPointData.Frequency);
             // Получаем одну страницу JSON ответа по сделкам
-            string responseJson = await GetPageJsonAsync(OkxUrl, afterBefore, pointRead);
+            string responseJson = await GetPageJsonAsync(endPointData.Url, afterBefore, pointRead);
+            _logger.Info(responseJson);
             //_logger.Debug(responseJson);
             if (string.IsNullOrEmpty(responseJson))
             {
@@ -109,17 +116,17 @@ namespace bot_analysis.Services.OKX
 
             // Формируем строку для подписи
             string prehash = timestamp + method + urlPath + body;
-            string sign = Sign(prehash, AppDataApiOKX.SecretKey);
+            string sign = Sign(prehash, AppOkxDataApi.SecretKey);
 
             string url = "https://www.okx.com" + urlPath;
             //Console.WriteLine("Посылаем запрос: " + urlPath);
 
             // Очищаем и устанавливаем заголовки для авторизации запроса
             _httpClient.DefaultRequestHeaders.Clear();
-            _httpClient.DefaultRequestHeaders.Add("OK-ACCESS-KEY", AppDataApiOKX.ApiKey);
+            _httpClient.DefaultRequestHeaders.Add("OK-ACCESS-KEY", AppOkxDataApi.ApiKey);
             _httpClient.DefaultRequestHeaders.Add("OK-ACCESS-SIGN", sign);
             _httpClient.DefaultRequestHeaders.Add("OK-ACCESS-TIMESTAMP", timestamp);
-            _httpClient.DefaultRequestHeaders.Add("OK-ACCESS-PASSPHRASE", AppDataApiOKX.Passphrase);
+            _httpClient.DefaultRequestHeaders.Add("OK-ACCESS-PASSPHRASE", AppOkxDataApi.Passphrase);
 
             try
             {

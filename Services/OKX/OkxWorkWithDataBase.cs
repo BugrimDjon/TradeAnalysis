@@ -13,6 +13,7 @@ using Mysqlx.Prepare;
 using System.Diagnostics;
 using System.Data.Common;
 using bot_analysis.Models.OKX;
+using System.Data;
 
 namespace bot_analysis.Services.OKX
 {
@@ -394,6 +395,21 @@ feeRate = VALUES(feeRate);
                 result.Add(reader.GetString(0)); // 0 — индекс столбца
             }
             return result;
+        }
+
+        public async Task<DataTable> ExecuteSqlQueryReturnDataTable(string query)
+        {
+            var table = new DataTable();
+
+            if (_mySqlConnection.State != System.Data.ConnectionState.Open)
+                await _mySqlConnection.OpenAsync();
+
+            await using var cmd = new MySqlCommand(query, _mySqlConnection);
+            await using var reader = await cmd.ExecuteReaderAsync();
+
+            table.Load(reader); // загружаем все данные из reader в DataTable
+
+            return table;
         }
 
         //обновить используемые торговые пары

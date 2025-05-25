@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using bot_analysis.Models.OKX;
+using System.Data;
 
 namespace bot_analysis.Interfaces
 {
@@ -19,6 +20,7 @@ namespace bot_analysis.Interfaces
         Task <IEnumerable<string>> GetUniqueCoinsAsync();//получить перечень уникальных монет
         Task ExecuteSQLQueryWithoutReturningParameters(string query); // выполняет переданный запрос
         Task<string> ExecuteSqlQueryReturnParamString(string query);// возвращает string на переданный запрос
+        Task<DataTable> ExecuteSqlQueryReturnDataTable(string query); //выполнить запрос и вернуть DataTable
 
         /// <summary>
         /// Принимает SQL запрос как параметр и возвращает ответ в виде списока

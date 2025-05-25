@@ -12,6 +12,7 @@ namespace bot_analysis.Interfaces
 {
     public interface ITradeAnalysisService
     {
+        Task UpdateBalansAcauntAsync(); //Обновление баланса по акаунту
         Task UpdateBotsAsync();//Обновление информации по ботам
         Task UpdateTradesAsync(); //Обновление ручных сделок 
         Task UpdateAccountTransfersAsync();//Обновить переводы аккаунта
@@ -19,5 +20,6 @@ namespace bot_analysis.Interfaces
         Task UpdateUniqueCoinsAsync();//Обновить уникальные торговые пары
         Task<IEnumerable<OkxReport>> GenerateReport();//Сформировать отчет
         Task GenerateReportAsync(IEnumerable<OkxReport> data);//Сохранить отчет
+        Task UpdateTransferEvaluationsAsync(); //обновить затраченные средства для переводов на/c аккаунта
     }
 }

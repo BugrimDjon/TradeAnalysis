@@ -2,11 +2,16 @@
 using bot_analysis.Enums;
 using bot_analysis.Interfaces;
 using bot_analysis.Models.OKX;
+using System.Data;
 using System.Text.Json;
+
 //using bot_analysis.Services;
 
 namespace bot_analysis.Services.OKX
 {
+
+
+
     /// <summary>
     /// Анализ сделок по биржи ОКХ
     /// </summary>
@@ -17,6 +22,7 @@ namespace bot_analysis.Services.OKX
         private readonly ILogger _logger;
         private readonly JsonSerializerOptions _jsonOptions;
 
+
         //конструктор класса
         public OkxTradeAnalysisService(ITradeApiClient apiClient, IWorkWithDataBase dataBase, JsonSerializerOptions jsonjsonOptions, ILogger logger)
         {
@@ -25,6 +31,40 @@ namespace bot_analysis.Services.OKX
             _logger = logger;
             _jsonOptions = jsonjsonOptions;
         }
+
+        //обновить затраченные средства для переводов на/c аккаунта,
+        //для последующего учета средней цены покупки монеты. Переведенные средства будут учитываться
+        //как покупка по цене на момент перевода
+        //
+        public async Task UpdateTransferEvaluationsAsync()
+        {
+            //в bills_table поле type=1 - это соответствует перреводам на/с аккаунта
+            //найти в таблице bills_table такие поля billId, которые отсутствуют
+            //в таблице transfer_valuations и для этих записей скопировать поля
+            //billId, sz из таблицы bills_table в transfer_valuations
+            string query = @"INSERT INTO transfer_valuations (billId, sz)
+                            SELECT b.billId, b.sz
+                            FROM bills_table b
+                            LEFT JOIN transfer_valuations t ON b.billId = t.billId
+                            WHERE b.type = 1 AND t.billId IS NULL;";
+            await _dataBase.ExecuteSQLQueryWithoutReturningParameters(query);
+
+            //получить поля billId, fillTime, ccy из таблицы bills_table
+            //укоторых совпадают billId и поле px в таблице transfer_valuations равно NULL
+            query = @"SELECT b.billId ,b.fillTime, b.ccy
+                            FROM transfer_valuations t
+                            JOIN bills_table b ON b.billId = t.billId
+                            WHERE t.px IS NULL
+                            ORDER BY b.fillTime";
+            DataTable  dataTable = await _dataBase.ExecuteSqlQueryReturnDataTable(query);
+            dataTable.Columns.Add("px");
+
+            var data = await _apiClient.GetApiDataAsync<ApiOkxCandle, OkxCandle>
+                                                    (OkxEndPoints.Candles("FET-USDT","1m"));
+        }
+
+
+
 
         public async Task UpdateBotsAsync()
         {
@@ -39,6 +79,14 @@ namespace bot_analysis.Services.OKX
             //обновление сделок по работающим ботам
             await UpdateOrdBotsВypassingBifoBug(false);
         }
+
+        public async Task UpdateBalansAcauntAsync()
+        {
+            var balans= await _apiClient.GetApiDataAsync<ApiOkxBalans,OkxBalans>(OkxEndPoints.BalansAcaunt);
+            _logger.Debug("type=6");
+        }
+
+
 
         private async Task UpdateOrdBotsВypassingBifoBug(bool oldBot)
         {
@@ -93,20 +141,20 @@ namespace bot_analysis.Services.OKX
 
                 do
                 {
-                    //ограничение скорости вызова запроса 10 запросов в 1 секунды
-                    await RateLimiter.EnforceRateLimit(10);
+                    ////ограничение скорости вызова запроса 10 запросов в 1 секунды
+                    //await RateLimiter.EnforceRateLimit(10);
                     if (counter == 0)
                     {
                         //если выполнились условия то это первый запрос
-
+                       
                         pageData = await _apiClient.GetApiDataAsync<ApiOkxBotOrder, OkxBotOrder>(
-                                    OkxUrlConst.SubOrdersBot(algoId));
+                                    OkxEndPoints.SubOrdersBot(algoId));
                     }
                     else
                     {
                         //считываем данные от новых к старым
                         pageData = await _apiClient.GetApiDataAsync<ApiOkxBotOrder, OkxBotOrder>(
-                                OkxUrlConst.SubOrdersBot(algoId),
+                                OkxEndPoints.SubOrdersBot(algoId),
                                 PaginationDirection.After, pointRead);
                     }
 
@@ -200,10 +248,10 @@ namespace bot_analysis.Services.OKX
 
             do
             {
-                //ограничение скорости вызова запроса 10 запросов в 1 секунды
-                await RateLimiter.EnforceRateLimit(10);
+                /*//ограничение скорости вызова запроса 10 запросов в 1 секунды
+                await RateLimiter.EnforceRateLimit(10);*/
 
-                string urlBot = stoppedBot ? OkxUrlConst.StoppedBot : OkxUrlConst.RunningBot;
+                var urlBot = stoppedBot ? OkxEndPoints.StoppedBot : OkxEndPoints.RunningBot;
                 //если counter==0 то это первое считывание и читаем без пагинации
                 pageData = counter == 0
                     ? await _apiClient.GetApiDataAsync<ApiOkxBot, OkxBot>(urlBot)
@@ -265,34 +313,50 @@ namespace bot_analysis.Services.OKX
                 //Количество купленных монет
                 query = $@" SELECT SUM(balChg)
                       FROM `bills_table`
-                      where `type`= '2' and ccy = '{coin}'  and balChg>'0';";
+                      where `type`= '2' and ccy = '{coin}'  and subType ='1';";
 
                 tempReport.BuyAmount = await _dataBase.ExecuteSqlQueryReturnParamString(query);
 
                 //На сумму в USDT
-                query = $@" SELECT abs(SUM(balChg-fee))
+                query = $@" SELECT abs(SUM(balChg))
                         FROM `bills_table`
                         where `type`= ""2"" and ccy = 'usdt' and
-                               instId = '{coin}'""-USDT"" and balChg<'0';";
+                               instId = '{coin}'""-USDT"" and subType='2';";
                 //Console.WriteLine(query);
                 tempReport.BuyTotal = await _dataBase.ExecuteSqlQueryReturnParamString(query);
 
                 //Средняя цена покупки
-
                 if (!string.IsNullOrWhiteSpace(tempReport.BuyAmount) &&
                     !string.IsNullOrWhiteSpace(tempReport.BuyTotal))
                 {
-                    Console.WriteLine("tempReport.BuyAmount = " + tempReport.BuyAmount);
-                    Console.WriteLine("tempReport.BuyTotal = " + tempReport.BuyTotal);
                     tempReport.BuyAvgPrice = Convert.ToString(
                         Convert.ToDecimal(tempReport.BuyTotal) /
                         Convert.ToDecimal(tempReport.BuyAmount));
+
+                    _logger.Info("Количество купленных " + coin + " = " + tempReport.BuyAmount);
+                    _logger.Info("На сумму в USDT = " + tempReport.BuyTotal);
+                    _logger.Info("Средняя цена покупки = " + tempReport.BuyAvgPrice);
                 }
+
+                // Количество купленных монет ботом
+                query = $@" select SUM(coin_delta)
+                      from bot_orders
+                      where instId = '{coin}-USDT' and coin_delta>0;";
+
+                tempReport.BuyAmountBot = await _dataBase.ExecuteSqlQueryReturnParamString(query);
+
+
+                // купленных ботом на сумму в USDT
+                query = $@" select abs(SUM(usdt_delta))
+                      from bot_orders
+                      where instId = '{coin}-USDT' and usdt_delta<0;";
+
+                tempReport.BuyTotalBot = await _dataBase.ExecuteSqlQueryReturnParamString(query);
 
                 //Количество проданных монет
                 query = $@" SELECT abs(SUM(balChg))
                       FROM `bills_table`
-                      where `type`= '2' and ccy = '{coin}'  and balChg<'0';";
+                      where `type`= '2' and ccy = '{coin}'  and subType ='2';";
 
                 tempReport.SellAmount = await _dataBase.ExecuteSqlQueryReturnParamString(query);
 
@@ -300,7 +364,7 @@ namespace bot_analysis.Services.OKX
                 query = $@" SELECT abs(SUM(balChg))
                         FROM `bills_table`
                         where `type`= ""2"" and ccy = 'usdt' and
-                               instId = '{coin}'""-USDT"" and balChg>'0';";
+                               instId = '{coin}'""-USDT"" and subType='1';";
 
                 tempReport.SellTotal = await _dataBase.ExecuteSqlQueryReturnParamString(query);
 
@@ -308,11 +372,14 @@ namespace bot_analysis.Services.OKX
                 if (!string.IsNullOrWhiteSpace(tempReport.SellAmount) &&
                     !string.IsNullOrWhiteSpace(tempReport.SellTotal))
                 {
-                    Console.WriteLine("tempReport.SellAmount = " + tempReport.SellAmount);
-                    Console.WriteLine("tempReport.SellTotal = " + tempReport.SellTotal);
                     tempReport.SellAvgPrice = Convert.ToString(
                         Convert.ToDecimal(tempReport.SellTotal) /
                         Convert.ToDecimal(tempReport.SellAmount));
+
+                    _logger.Info("Количество проданных " + coin + " = " + tempReport.SellAmount);
+                    _logger.Info("На сумму в USDT = " + tempReport.SellTotal);
+                    _logger.Info("Средняя цена продажи = " + tempReport.SellAvgPrice);
+
                 }
 
                 //% дохода
@@ -389,14 +456,14 @@ namespace bot_analysis.Services.OKX
             pointRead = await _dataBase.ExecuteSqlQueryReturnParamString(query);
             do
             {
-                //ограничение скорости вызова запроса 5 запросов в 1 секунды
-                await RateLimiter.EnforceRateLimit(5);
+                /*//ограничение скорости вызова запроса 5 запросов в 1 секунды
+                await RateLimiter.EnforceRateLimit(5);*/
 
                 if (string.IsNullOrEmpty(pointRead) && counter == 0)
                 {
                     //если выполнились условия то это первый запрос
                     pageData = await _apiClient.GetApiDataAsync<ApiOkxBill, OkxBill>
-                                (OkxUrlConst.Bill);
+                                (OkxEndPoints.Bill);
                     startedOver = true;
                 }
                 else
@@ -405,14 +472,14 @@ namespace bot_analysis.Services.OKX
                     {
                         //считываем данные от новых к старым
                         pageData = await _apiClient.GetApiDataAsync<ApiOkxBill, OkxBill>
-                                (OkxUrlConst.Bill,
+                                (OkxEndPoints.Bill,
                                 PaginationDirection.After, pointRead);
                     }
                     else
                     {
                         //считываем данные от станых к новым
                         pageData = await _apiClient.GetApiDataAsync<ApiOkxBill, OkxBill>
-                                (OkxUrlConst.Bill,
+                                (OkxEndPoints.Bill,
                                 PaginationDirection.Before, pointRead);
                     }
                 }
@@ -472,14 +539,15 @@ namespace bot_analysis.Services.OKX
             pointRead = await _dataBase.ExecuteSqlQueryReturnParamString(query);
             do
             {
-                //ограничение скорости вызова запроса 5 запросов в 1 секунды
-                await RateLimiter.EnforceRateLimit(5);
+               /* //ограничение скорости вызова запроса 5 запросов в 1 секунды
+                await RateLimiter.EnforceRateLimit(5);*/
 
                 if (string.IsNullOrEmpty(pointRead) && counter == 0)
                 {
                     //если выполнились условия то это первый запрос
-                    pageData = await _apiClient.GetApiDataAsync<ApiOkxTradeFillsHistory, OkxTradeFillsHistory>
-                                (OkxUrlConst.FillHistorySpot);
+                    pageData = await _apiClient.GetApiDataAsync
+                        <ApiOkxTradeFillsHistory, OkxTradeFillsHistory>
+                        (OkxEndPoints.FillHistorySpot);
                     startedOver = true;
                 }
                 else
@@ -488,14 +556,14 @@ namespace bot_analysis.Services.OKX
                     {
                         //считываем данные от новых к старым
                         pageData = await _apiClient.GetApiDataAsync<ApiOkxTradeFillsHistory, OkxTradeFillsHistory>
-                                (OkxUrlConst.FillHistorySpot,
+                                (OkxEndPoints.FillHistorySpot,
                                 PaginationDirection.After, pointRead);
                     }
                     else
                     {
                         //считываем данные от старых к новым
                         pageData = await _apiClient.GetApiDataAsync<ApiOkxTradeFillsHistory, OkxTradeFillsHistory>
-                                (OkxUrlConst.FillHistorySpot,
+                                (OkxEndPoints.FillHistorySpot,
                                 PaginationDirection.Before, pointRead);
                     }
                 }
