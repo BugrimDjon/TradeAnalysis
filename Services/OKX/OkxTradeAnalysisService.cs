@@ -3,6 +3,7 @@ using bot_analysis.Enums;
 using bot_analysis.Interfaces;
 using bot_analysis.Models.OKX;
 using System.Data;
+using System.Globalization;
 using System.Text.Json;
 
 //using bot_analysis.Services;
@@ -38,7 +39,7 @@ namespace bot_analysis.Services.OKX
         //
         public async Task UpdateTransferEvaluationsAsync()
         {
-            //в bills_table поле type=1 - это соответствует перреводам на/с аккаунта
+            //в bills_table поле type=1 - это соответствует переводам на/с аккаунта
             //найти в таблице bills_table такие поля billId, которые отсутствуют
             //в таблице transfer_valuations и для этих записей скопировать поля
             //billId, sz из таблицы bills_table в transfer_valuations
@@ -50,17 +51,51 @@ namespace bot_analysis.Services.OKX
             await _dataBase.ExecuteSQLQueryWithoutReturningParameters(query);
 
             //получить поля billId, fillTime, ccy из таблицы bills_table
-            //укоторых совпадают billId и поле px в таблице transfer_valuations равно NULL
+            //у которых совпадают billId и поле px в таблице transfer_valuations равно NULL
             query = @"SELECT b.billId ,b.fillTime, b.ccy
                             FROM transfer_valuations t
                             JOIN bills_table b ON b.billId = t.billId
                             WHERE t.px IS NULL
                             ORDER BY b.fillTime";
-            DataTable  dataTable = await _dataBase.ExecuteSqlQueryReturnDataTable(query);
-            dataTable.Columns.Add("px");
+            DataTable dataTable = await _dataBase.ExecuteSqlQueryReturnDataTable(query);
+            //dataTable.Columns.Add("px");
 
-            var data = await _apiClient.GetApiDataAsync<ApiOkxCandle, OkxCandle>
-                                                    (OkxEndPoints.Candles("FET-USDT","1m"));
+            string px;
+            foreach (DataRow tempDataTable in dataTable.Rows)
+            {
+                string? coin = tempDataTable["ccy"].ToString();
+                if (coin == "USDT")
+                {
+                    px = "1";
+                }
+                else
+                {
+                    //округляем время перевода до 1 минуты
+                    long.TryParse(tempDataTable["fillTime"].ToString(), out long fillTime);
+                    string? point = (((fillTime + 59999) / 60000) * 60000).ToString();
+                    //производим запрос свечи на эту минуту
+                    var candleData = await _apiClient.GetApiDataAsDataTableUniversalAsync(
+                                                OkxEndPoints.Candles(coin+"-USDT", "1m", "1"),
+                                                PaginationDirection.After,
+                                                point);
+                    //если ответ не содержит строк - ответ пустой
+                    if (candleData.Rows.Count == 0)
+                    {
+                        Console.WriteLine($"Нет свечей для {coin} на {point}");
+                    }
+                    decimal.TryParse(candleData.Rows[0][3].ToString(),NumberStyles.Any,
+                        CultureInfo.InvariantCulture, out decimal highPrice);
+                    decimal.TryParse(candleData.Rows[0][4].ToString(), NumberStyles.Any,
+                        CultureInfo.InvariantCulture, out decimal lowPrice);
+                    decimal resultPrase = (highPrice + lowPrice) / 2;
+                    px = resultPrase.ToString(CultureInfo.InvariantCulture);
+                }
+                // Сразу обновляем базу
+                string updateQuery = $@"UPDATE transfer_valuations 
+                            SET px = '{px}' 
+                            WHERE billId = '{tempDataTable["billId"]}'";
+                await _dataBase.ExecuteSQLQueryWithoutReturningParameters(updateQuery);
+            }
         }
 
 
@@ -82,7 +117,7 @@ namespace bot_analysis.Services.OKX
 
         public async Task UpdateBalansAcauntAsync()
         {
-            var balans= await _apiClient.GetApiDataAsync<ApiOkxBalans,OkxBalans>(OkxEndPoints.BalansAcaunt);
+            var balans = await _apiClient.GetApiDataAsync<ApiOkxBalans, OkxBalans>(OkxEndPoints.BalansAcaunt);
             _logger.Debug("type=6");
         }
 
@@ -146,7 +181,7 @@ namespace bot_analysis.Services.OKX
                     if (counter == 0)
                     {
                         //если выполнились условия то это первый запрос
-                       
+
                         pageData = await _apiClient.GetApiDataAsync<ApiOkxBotOrder, OkxBotOrder>(
                                     OkxEndPoints.SubOrdersBot(algoId));
                     }
@@ -539,8 +574,8 @@ namespace bot_analysis.Services.OKX
             pointRead = await _dataBase.ExecuteSqlQueryReturnParamString(query);
             do
             {
-               /* //ограничение скорости вызова запроса 5 запросов в 1 секунды
-                await RateLimiter.EnforceRateLimit(5);*/
+                /* //ограничение скорости вызова запроса 5 запросов в 1 секунды
+                 await RateLimiter.EnforceRateLimit(5);*/
 
                 if (string.IsNullOrEmpty(pointRead) && counter == 0)
                 {

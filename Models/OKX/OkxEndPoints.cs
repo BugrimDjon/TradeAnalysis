@@ -55,8 +55,15 @@ namespace bot_analysis.Models.OKX
         };
         public static OkxEndpointInfo Candles(string instId, string bar) => new OkxEndpointInfo
         {
-            Url = $"/api/v5/market/candles?&limit={AppOkxDataApi.LimitEndPoint}&bar={bar}&instId={instId}",
+            Url = $"/api/v5/market/history-candles?limit={AppOkxDataApi.LimitEndPoint}&bar={bar}&instId={instId}",
             Frequency = 20
         };
+        public static OkxEndpointInfo Candles
+                        (string instId, string bar, string limit) => new OkxEndpointInfo
+        {
+            Url = $"/api/v5/market/history-candles?limit={limit}&bar={bar}&instId={instId}",
+            Frequency = 20
+        };
+
     }
 }

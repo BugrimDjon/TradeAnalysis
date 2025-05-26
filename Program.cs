@@ -26,7 +26,8 @@ namespace bot_analysis
             logger.IsEnabled = true;
 
             await tradeAnalysisService.UpdateBalansAcauntAsync();
-            await tradeAnalysisService.UpdateTransferEvaluationsAsync();
+            await tradeAnalysisService.UpdateTransferEvaluationsAsync();//оценить "затраты" на переводы для
+                                                      //корректного вычисления средней цены покупки монеты
 
 
             //*******************Готово

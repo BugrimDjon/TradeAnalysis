@@ -2,6 +2,7 @@
 using bot_analysis.Enums;
 using bot_analysis.Interfaces;
 using bot_analysis.Models.OKX;
+using System.Data;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -36,7 +37,7 @@ namespace bot_analysis.Services.OKX
             where TResponse : IApiResponseWithData<TData>
 
         {
-            //ограничение скорости вызова запроса 10 запросов в 1 секунды
+            //ограничение скорости вызова запроса
             await RateLimiter.EnforceRateLimit(endPointData.Frequency);
             // Получаем одну страницу JSON ответа по сделкам
             string responseJson = await GetPageJsonAsync(endPointData.Url, afterBefore, pointRead);
@@ -54,6 +55,95 @@ namespace bot_analysis.Services.OKX
             // Возвращаем список сделок, если он существует, иначе пустой список
             return result?.data ?? new List<TData>();
         }
+
+        /// <summary>
+        /// универсальный метод для запроса по API
+        /// </summary>
+        /// <returns> возвращает распарсеный JSON в виде списка Task<DataTable> </returns>
+        public async Task<DataTable> GetApiDataAsDataTableUniversalAsync(
+                                OkxEndpointInfo endPointData,
+                                PaginationDirection? afterBefore = null,
+                                string? pointRead = null)
+        {
+            //ограничение скорости вызова запроса
+            await RateLimiter.EnforceRateLimit(endPointData.Frequency);
+
+            string responseJson = await GetPageJsonAsync(endPointData.Url, afterBefore, pointRead);
+            _logger.Info(responseJson);
+
+            var table = new DataTable();
+
+            if (string.IsNullOrEmpty(responseJson))
+            {
+                Console.WriteLine("Нет данных.");
+                return table;
+            }
+
+            using var doc = JsonDocument.Parse(responseJson);
+            var root = doc.RootElement;
+
+            if (!root.TryGetProperty("data", out var dataElement))
+            {
+                Console.WriteLine("Не найдено свойство 'data'.");
+                return table;
+            }
+
+            // Массив объектов [{...}, {...}]
+            if (dataElement.ValueKind == JsonValueKind.Array && dataElement.GetArrayLength() > 0)
+            {
+                var firstRow = dataElement[0];
+                if (firstRow.ValueKind == JsonValueKind.Object)
+                {
+                    // Создаём столбцы
+                    foreach (var prop in firstRow.EnumerateObject())
+                    {
+                        table.Columns.Add(prop.Name, typeof(string)); // можно задать другой тип, если нужно
+                    }
+
+                    // Заполняем строки
+                    foreach (var rowElement in dataElement.EnumerateArray())
+                    {
+                        var row = table.NewRow();
+                        foreach (var prop in rowElement.EnumerateObject())
+                        {
+                            row[prop.Name] = prop.Value.ToString();
+                        }
+                        table.Rows.Add(row);
+                    }
+
+                    return table;
+                }
+
+                // Массив массивов [["...", "..."], ["...", "..."]]
+                if (firstRow.ValueKind == JsonValueKind.Array)
+                {
+                    int colCount = firstRow.GetArrayLength();
+                    for (int i = 0; i < colCount; i++)
+                    {
+                        table.Columns.Add($"col{i + 1}", typeof(string));
+                    }
+
+                    foreach (var arrayRow in dataElement.EnumerateArray())
+                    {
+                        var row = table.NewRow();
+                        for (int i = 0; i < arrayRow.GetArrayLength(); i++)
+                        {
+                            row[i] = arrayRow[i].ToString();
+                        }
+                        table.Rows.Add(row);
+                    }
+
+                    return table;
+                }
+            }
+
+            Console.WriteLine("Формат 'data' не поддерживается.");
+            return table;
+        }
+
+
+
+
 
         /// <summary>
         /// метод для запроса сделок выполненых ботами
