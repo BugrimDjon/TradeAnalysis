@@ -1,18 +1,6 @@
 ﻿using bot_analysis.Interfaces;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using MySql.Data.MySqlClient;
-using System.Collections;
-using Google.Protobuf.WellKnownTypes;
-using System.Reflection.Metadata.Ecma335;
-using Mysqlx.Crud;
-using Mysqlx.Prepare;
-using System.Diagnostics;
-using System.Data.Common;
 using bot_analysis.Models.OKX;
+using MySql.Data.MySqlClient;
 using System.Data;
 
 namespace bot_analysis.Services.OKX

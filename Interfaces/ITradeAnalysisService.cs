@@ -12,7 +12,7 @@ namespace bot_analysis.Interfaces
 {
     public interface ITradeAnalysisService
     {
-        Task UpdateBalansAcauntAsync(); //Обновление баланса по акаунту
+        //Task UpdateBalansAcauntAsync(); //Обновление баланса по акаунту
         Task UpdateBotsAsync();//Обновление информации по ботам
         Task UpdateTradesAsync(); //Обновление ручных сделок 
         Task UpdateAccountTransfersAsync();//Обновить переводы аккаунта

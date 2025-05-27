@@ -38,10 +38,11 @@ namespace bot_analysis.Services.OKX
 
         {
             //ограничение скорости вызова запроса
-            await RateLimiter.EnforceRateLimit(endPointData.Frequency);
+            var wait = await RateLimiter.EnforceRateLimit(endPointData.Frequency);
+            _logger.Info("Пвуза в " + wait + " с");
             // Получаем одну страницу JSON ответа по сделкам
             string responseJson = await GetPageJsonAsync(endPointData.Url, afterBefore, pointRead);
-            _logger.Info(responseJson);
+            _logger.Debug(responseJson);
             //_logger.Debug(responseJson);
             if (string.IsNullOrEmpty(responseJson))
             {
@@ -66,10 +67,10 @@ namespace bot_analysis.Services.OKX
                                 string? pointRead = null)
         {
             //ограничение скорости вызова запроса
-            await RateLimiter.EnforceRateLimit(endPointData.Frequency);
-
+            var wait = await RateLimiter.EnforceRateLimit(endPointData.Frequency);
+            _logger.Info("Пвуза в " + wait + " с");
             string responseJson = await GetPageJsonAsync(endPointData.Url, afterBefore, pointRead);
-            _logger.Info(responseJson);
+            _logger.Debug(responseJson);
 
             var table = new DataTable();
 
@@ -241,7 +242,7 @@ namespace bot_analysis.Services.OKX
 
             //            GET https://www.okx.com/api/v5/asset/transfer-state?ccy=USDT&type=0&limit=100
 
-            _logger.Debug("Производим считывание таблицы bill");
+            _logger.Info("Производим считывание таблицы bill");
 
             if (string.IsNullOrEmpty(billId) && afterBefore == null)
             {

@@ -75,15 +75,15 @@ namespace bot_analysis.Services.OKX
                     string? point = (((fillTime + 59999) / 60000) * 60000).ToString();
                     //производим запрос свечи на эту минуту
                     var candleData = await _apiClient.GetApiDataAsDataTableUniversalAsync(
-                                                OkxEndPoints.Candles(coin+"-USDT", "1m", "1"),
+                                                OkxEndPoints.Candles(coin + "-USDT", "1m", "1"),
                                                 PaginationDirection.After,
                                                 point);
                     //если ответ не содержит строк - ответ пустой
                     if (candleData.Rows.Count == 0)
                     {
-                        Console.WriteLine($"Нет свечей для {coin} на {point}");
+                        _logger.Error($"Нет свечей для {coin} на {point}");
                     }
-                    decimal.TryParse(candleData.Rows[0][3].ToString(),NumberStyles.Any,
+                    decimal.TryParse(candleData.Rows[0][3].ToString(), NumberStyles.Any,
                         CultureInfo.InvariantCulture, out decimal highPrice);
                     decimal.TryParse(candleData.Rows[0][4].ToString(), NumberStyles.Any,
                         CultureInfo.InvariantCulture, out decimal lowPrice);
@@ -118,7 +118,6 @@ namespace bot_analysis.Services.OKX
         public async Task UpdateBalansAcauntAsync()
         {
             var balans = await _apiClient.GetApiDataAsync<ApiOkxBalans, OkxBalans>(OkxEndPoints.BalansAcaunt);
-            _logger.Debug("type=6");
         }
 
 
@@ -210,7 +209,7 @@ namespace bot_analysis.Services.OKX
                     if (pageData.Count() < 100 || goalHasBeenAchieved)
                     {
                         _logger.Info("Закончили обработку данных бота AlgoId = " + algoId +
-                            "      Считано " + len + " записей");
+                            "      Считано " + (len-20) + " записей");
 
                         break;
                     }
@@ -245,8 +244,7 @@ namespace bot_analysis.Services.OKX
 
                 allLen += len;
             }
-
-            Console.WriteLine("Общее кол во записей - " + allLen);
+            _logger.Info("Общее кол во записей - " + (allLen-20));
         }
         private async Task UpdateStoppedRunningBotsBypassingBifoBugAsync(bool stoppedBot)
         {
@@ -331,6 +329,10 @@ namespace bot_analysis.Services.OKX
             int counter = 0;
             var UniqueCoins = await _dataBase.GetUniqueCoinsAsync();
 
+            //считать текуший баланс аккаунта
+            IEnumerable<OkxBalans> balans = await _apiClient.GetApiDataAsync<ApiOkxBalans, OkxBalans>(OkxEndPoints.BalansAcaunt);
+
+
             foreach (var coin in UniqueCoins)
             {
                 var tempReport = new OkxReport();
@@ -338,18 +340,51 @@ namespace bot_analysis.Services.OKX
                 //Перечень монет
                 tempReport.Coins = coin;
 
-                //Количество переведенных монет
+                //Зачислено монет
                 query = $@" SELECT SUM(balChg)
                       FROM `bills_table`
-                      where `type`= '1' and ccy = '{coin}';";
+                      where `type`= '1' and ccy = '{coin}' and balChg>0;";
+                tempReport.Deposit = await _dataBase.ExecuteSqlQueryReturnParamString(query);
 
-                tempReport.CoinsTransf = await _dataBase.ExecuteSqlQueryReturnParamString(query);
+                //На какую сумму оценочно
+                query = $@" SELECT SUM(t.expense_amount_usdt)
+                        FROM transfer_valuations t
+                        join bills_table b on b.billId = t.billId
+                        where b.ccy = '{coin}' and t.expense_amount_usdt>0";
+                tempReport.DepositSum = await _dataBase.ExecuteSqlQueryReturnParamString(query);
 
+                //выведено монет
+                query = $@" SELECT SUM(balChg)
+                      FROM `bills_table`
+                      where `type`= '1' and ccy = '{coin}' and balChg<0;";
+                tempReport.Withdraw = await _dataBase.ExecuteSqlQueryReturnParamString(query);
+
+                //На какую сумму оценочно
+                query = $@" SELECT SUM(t.expense_amount_usdt)
+                        FROM transfer_valuations t
+                        join bills_table b on b.billId = t.billId
+                        where b.ccy = '{coin}' and t.expense_amount_usdt<0";
+                tempReport.WithdrawSum = await _dataBase.ExecuteSqlQueryReturnParamString(query);
+                var tempRow = balans.FirstOrDefault();
+
+                foreach (var temp in tempRow.Details)
+                {
+                    if (temp.Ccy == coin)
+                    {
+                        tempReport.Eq = temp.Eq?.Replace(".", ",");
+                        tempReport.Equsd = temp.Equsd?.Replace(".", ",");
+                        tempReport.Availbal = temp.Availbal?.Replace(".", ",");
+                        tempReport.Cashbal = temp.Cashbal?.Replace(".", ",");
+                        tempReport.Ordfrozen = temp.Ordfrozen?.Replace(".", ",");
+                        tempReport.Stgyeq = temp.Stgyeq?.Replace(".", ",");
+                        tempReport.Frozenbal = temp.Frozenbal?.Replace(".", ",");
+                        tempReport.Spotbal = temp.Spotbal?.Replace(".", ",");
+                    }
+                }
                 //Количество купленных монет
                 query = $@" SELECT SUM(balChg)
                       FROM `bills_table`
                       where `type`= '2' and ccy = '{coin}'  and subType ='1';";
-
                 tempReport.BuyAmount = await _dataBase.ExecuteSqlQueryReturnParamString(query);
 
                 //На сумму в USDT
@@ -357,21 +392,95 @@ namespace bot_analysis.Services.OKX
                         FROM `bills_table`
                         where `type`= ""2"" and ccy = 'usdt' and
                                instId = '{coin}'""-USDT"" and subType='2';";
-                //Console.WriteLine(query);
                 tempReport.BuyTotal = await _dataBase.ExecuteSqlQueryReturnParamString(query);
 
-                //Средняя цена покупки
                 if (!string.IsNullOrWhiteSpace(tempReport.BuyAmount) &&
                     !string.IsNullOrWhiteSpace(tempReport.BuyTotal))
                 {
+                    //Средняя цена покупки
                     tempReport.BuyAvgPrice = Convert.ToString(
                         Convert.ToDecimal(tempReport.BuyTotal) /
                         Convert.ToDecimal(tempReport.BuyAmount));
 
-                    _logger.Info("Количество купленных " + coin + " = " + tempReport.BuyAmount);
-                    _logger.Info("На сумму в USDT = " + tempReport.BuyTotal);
-                    _logger.Info("Средняя цена покупки = " + tempReport.BuyAvgPrice);
+                    if (!string.IsNullOrWhiteSpace(tempReport.DepositSum) &&
+                    !string.IsNullOrWhiteSpace(tempReport.Deposit))
+                    {
+                        //Средняя цена покупки с учетом переводов
+                        tempReport.BuyAvgPriceIncludingTransfers = Convert.ToString(
+                        (Convert.ToDecimal(tempReport.BuyTotal) + Convert.ToDecimal(tempReport.DepositSum)) /
+                        (Convert.ToDecimal(tempReport.BuyAmount) + Convert.ToDecimal(tempReport.Deposit)));
+                    }
+                    else
+                        tempReport.BuyAvgPriceIncludingTransfers = tempReport.BuyAvgPrice;
                 }
+                else
+                {
+                    if (!string.IsNullOrWhiteSpace(tempReport.DepositSum) &&
+                    !string.IsNullOrWhiteSpace(tempReport.Deposit))
+                    {
+                        //Средняя цена покупки с учетом переводов
+                        tempReport.BuyAvgPriceIncludingTransfers = Convert.ToString(
+                         Convert.ToDecimal(tempReport.DepositSum) /
+                         Convert.ToDecimal(tempReport.Deposit));
+                    }
+                    else
+                        tempReport.BuyAvgPriceIncludingTransfers = tempReport.BuyAvgPrice;
+                }
+
+                //Количество проданных монет
+                query = $@" SELECT abs(SUM(balChg))
+                      FROM `bills_table`
+                      where `type`= '2' and ccy = '{coin}'  and subType ='2';";
+                tempReport.SellAmount = await _dataBase.ExecuteSqlQueryReturnParamString(query);
+
+                //На сумму в USDT
+                query = $@" SELECT abs(SUM(balChg))
+                        FROM `bills_table`
+                        where `type`= ""2"" and ccy = 'usdt' and
+                               instId = '{coin}'""-USDT"" and subType='1';";
+                tempReport.SellTotal = await _dataBase.ExecuteSqlQueryReturnParamString(query);
+
+                if (!string.IsNullOrWhiteSpace(tempReport.SellAmount) &&
+                    !string.IsNullOrWhiteSpace(tempReport.SellTotal))
+                {
+                    //Средняя цена продажи
+                    tempReport.SellAvgPrice = Convert.ToString(
+                        Convert.ToDecimal(tempReport.SellTotal) /
+                        Convert.ToDecimal(tempReport.SellAmount));
+
+                    if (!string.IsNullOrWhiteSpace(tempReport.WithdrawSum) &&
+                        !string.IsNullOrWhiteSpace(tempReport.Withdraw))
+
+                    {
+                        //Средняя цена продажи с учетом переводов
+                        tempReport.SelAvgPriceIncludingTransfers = Convert.ToString(
+                       (Convert.ToDecimal(tempReport.SellTotal) +
+                       Convert.ToDecimal(tempReport.WithdrawSum)) /
+                        (Convert.ToDecimal(tempReport.SellAmount) + Convert.ToDecimal(tempReport.Withdraw)));
+                    }
+                    else
+                        tempReport.SelAvgPriceIncludingTransfers = tempReport.SellAvgPrice;
+                }
+                else
+                {
+                    if (!string.IsNullOrWhiteSpace(tempReport.WithdrawSum) &&
+                        !string.IsNullOrWhiteSpace(tempReport.Withdraw))
+
+                    {
+                        //Средняя цена продажи с учетом переводов
+                        tempReport.SelAvgPriceIncludingTransfers = Convert.ToString(
+                            Convert.ToDecimal(tempReport.WithdrawSum) /
+                            Convert.ToDecimal(tempReport.Withdraw));
+                    }
+                    else
+                        tempReport.SelAvgPriceIncludingTransfers = tempReport.SellAvgPrice;
+                }
+
+
+
+
+
+                //****************Следующие параметры не проверены
 
                 // Количество купленных монет ботом
                 query = $@" select SUM(coin_delta)
@@ -388,44 +497,19 @@ namespace bot_analysis.Services.OKX
 
                 tempReport.BuyTotalBot = await _dataBase.ExecuteSqlQueryReturnParamString(query);
 
-                //Количество проданных монет
-                query = $@" SELECT abs(SUM(balChg))
-                      FROM `bills_table`
-                      where `type`= '2' and ccy = '{coin}'  and subType ='2';";
-
-                tempReport.SellAmount = await _dataBase.ExecuteSqlQueryReturnParamString(query);
-
-                //На сумму в USDT
-                query = $@" SELECT abs(SUM(balChg))
-                        FROM `bills_table`
-                        where `type`= ""2"" and ccy = 'usdt' and
-                               instId = '{coin}'""-USDT"" and subType='1';";
-
-                tempReport.SellTotal = await _dataBase.ExecuteSqlQueryReturnParamString(query);
-
-                //Средняя цена продажи
-                if (!string.IsNullOrWhiteSpace(tempReport.SellAmount) &&
-                    !string.IsNullOrWhiteSpace(tempReport.SellTotal))
-                {
-                    tempReport.SellAvgPrice = Convert.ToString(
-                        Convert.ToDecimal(tempReport.SellTotal) /
-                        Convert.ToDecimal(tempReport.SellAmount));
-
-                    _logger.Info("Количество проданных " + coin + " = " + tempReport.SellAmount);
-                    _logger.Info("На сумму в USDT = " + tempReport.SellTotal);
-                    _logger.Info("Средняя цена продажи = " + tempReport.SellAvgPrice);
-
-                }
-
                 //% дохода
-                if (!string.IsNullOrWhiteSpace(tempReport.BuyAvgPrice) &&
-                   !string.IsNullOrWhiteSpace(tempReport.SellAvgPrice))
+                if (!string.IsNullOrWhiteSpace(tempReport.BuyAvgPriceIncludingTransfers) &&
+                   !string.IsNullOrWhiteSpace((string?)tempReport.SelAvgPriceIncludingTransfers))
                 {
-                    var buyAvgPrice = Convert.ToDecimal(tempReport.BuyAvgPrice);
-                    var sellAvgPrice = Convert.ToDecimal(tempReport.SellAvgPrice);
+                    var buy = Convert.ToDecimal(tempReport.BuyAvgPriceIncludingTransfers);
+                    var sell= Convert.ToDecimal(tempReport.SelAvgPriceIncludingTransfers);
                     tempReport.ProfitPercent = Convert.ToString(
-                        (sellAvgPrice - buyAvgPrice) / buyAvgPrice * 100);
+                        (sell - buy) / buy* 100);
                 }
+
+
+
+
 
                 //Монет в наличии 
                 query = $@" SELECT SUM(balChg)
@@ -526,8 +610,8 @@ namespace bot_analysis.Services.OKX
                 if (pageData.Count() < 100)
                 {
                     len += pageData.Count();
-                    _logger.Info("Закончили запрос транзакциям аккаунта. " +
-                        "      Обработано " + len + " записей");
+                    _logger.Info("Закончили запрос по транзакциям ботов. " +
+                        "      Обработано " + (len-21) + " записей");
                     break;
                 }
 
@@ -536,7 +620,7 @@ namespace bot_analysis.Services.OKX
                     pointRead = pageData.LastOrDefault()?.BillId ?? "";
                 else
                     pointRead = pageData.FirstOrDefault()?.BillId ?? "";
-                _logger.Info("Обработано " + len + " записей");
+                _logger.Info("Обработано " + (len-21) + " записей");
                 counter++;
             }
             while (true);
@@ -610,8 +694,8 @@ namespace bot_analysis.Services.OKX
                 if (pageData.Count() < 100)
                 {
                     len += pageData.Count();
-                    _logger.Info("Закончили запрос транзакциям аккаунта. " +
-                        "      Обработано " + len + " записей");
+                    _logger.Info("Закончили запрос по всем транзакциям аккаунта. " +
+                        "      Обработано " + (len-20) + " записей");
                     break;
                 }
 
@@ -620,7 +704,7 @@ namespace bot_analysis.Services.OKX
                     pointRead = pageData.LastOrDefault()?.billId ?? "";
                 else
                     pointRead = pageData.FirstOrDefault()?.billId ?? "";
-                _logger.Info("Обработано " + len + " записей");
+                _logger.Info("Обработано " + (len-20) + " записей");
                 counter++;
             }
             while (true);
