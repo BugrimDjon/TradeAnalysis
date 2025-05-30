@@ -1,5 +1,6 @@
 ﻿
 using bot_analysis.Init.OKX;
+using bot_analysis.Models.OKX;
 using bot_analysis.Services.OKX;
 
 /*Получить активные боты	GET /api/v5/tradingBot/grid/orders-algo-pending
@@ -72,10 +73,12 @@ namespace bot_analysis
             await tradeAnalysisService.UpdateUniqueTradingPairsAsync();//обновить уникальные торговые пары
             await tradeAnalysisService.UpdateUniqueCoinsAsync();//обновить уникальные монеты
             await tradeAnalysisService.UpdateTransferEvaluationsAsync();//оценить "затраты" на переводы для
-                                                                        //корректного вычисления средней цены покупки монеты
+                                                                       //корректного вычисления средней цены 
+                                                                       //покупки монеты
 
-            //сгенерировать и созранить отчет
-            await tradeAnalysisService.GenerateReportAsync(await tradeAnalysisService.GenerateReport());
+            //сгенерировать и сохранить отчет
+            await tradeAnalysisService.GenerateReportAsync<OkxReport>
+                        (await tradeAnalysisService.GenerateReport());
         }
     }
 }

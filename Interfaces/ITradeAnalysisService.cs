@@ -19,7 +19,7 @@ namespace bot_analysis.Interfaces
         Task UpdateUniqueTradingPairsAsync();//Обновить уникальные торговые пары
         Task UpdateUniqueCoinsAsync();//Обновить уникальные торговые пары
         Task<IEnumerable<OkxReport>> GenerateReport();//Сформировать отчет
-        Task GenerateReportAsync(IEnumerable<OkxReport> data);//Сохранить отчет
+        Task GenerateReportAsync<T>(IEnumerable<T> data) where T : class; //Сохранить отчет
         Task UpdateTransferEvaluationsAsync(); //обновить затраченные средства для переводов на/c аккаунта
     }
 }
